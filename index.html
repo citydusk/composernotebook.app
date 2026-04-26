@@ -598,7 +598,7 @@ body:not(.light) [data-textcolor="#1C1508"].text-color:not(.on){border-color:rgb
 <div class="scroll-area">
 <div id="iphoneSplash" style="display:none;">
   <h1>Welcome to musicnotebook.app</h1>
-  <p>This mobile version offers a pocket notebook with limited features.</p>
+  <p>This is the mobile version offering a pocket notebook with limited features.</p>
   <p>Try it on a tablet or desktop for the full experience.</p>
   <div class="tap-hint">Tap to continue.</div>
 </div>
@@ -745,14 +745,45 @@ const cx = cv.getContext('2d');
 const _isIPhone = /iPhone/.test(navigator.userAgent) || (window.matchMedia('(pointer:coarse)').matches && window.screen.width <= 430);
 const _isStandalone = (window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches);
 const _isStandaloneiPad = _isStandalone && !_isIPhone;
+const _isTouch = window.matchMedia('(pointer:coarse)').matches;
 const LW = 700;
 const MM = 100 / 25.4;          // logical px per mm at 96dpi baseline
-const _iPhoneLS = _isIPhone ? (20.9 * MM) / 4 : 0;
-const ML = _isIPhone ? _iPhoneLS : 50, MR = _isIPhone ? _iPhoneLS : 50, MB = _isIPhone ? 10 : 100; // page margins
-const SH  = _isIPhone ? 20.9 * MM : 8.0 * MM;  // staff height — 2.3x on iPhone
+
+// ─────────────────────────────────────────────────────────────────
+// DEVICE PROFILE — form-factor-specific layout constants.
+// All form-factor branching for static layout values lives here.
+// Downstream code reads PROFILE.* (or the named constants below)
+// and never re-checks _isIPhone for these values.
+// Viewport-derived values (LH, MT) are computed after this block
+// because they depend on live window measurements.
+// ─────────────────────────────────────────────────────────────────
+const PROFILE = _isIPhone ? {
+  staffHeightMM: 20.9,                        // 2.3× desktop for finger-size targets
+  staffCount: 4,
+  marginH: (20.9 * MM) / 4,                   // = LS; equal to one staff space
+  marginBottom: 10,
+  gapFn: (LS) => LS * 7,
+  lineWidth: 1.4,
+  paper: '#F8F3E7',
+  maxLedgerTapAbove: -6,                      // stricter — 3 ledger lines for single-tap
+  maxLedgerTapBelow: 14,
+} : {
+  staffHeightMM: 8.0,
+  staffCount: 8,
+  marginH: 50,
+  marginBottom: 100,
+  gapFn: () => 16.0 * MM,
+  lineWidth: 0.6,
+  paper: _isTouch ? '#E0D0AD' : '#F8F3E7',    // tablet (non-iPhone touch) gets warmer paper
+  maxLedgerTapAbove: -8,
+  maxLedgerTapBelow: 16,
+};
+
+const ML = PROFILE.marginH, MR = PROFILE.marginH, MB = PROFILE.marginBottom; // page margins
+const SH  = PROFILE.staffHeightMM * MM;  // staff height
 const LS  = SH / 4;   // one staff space (line spacing)
 const STEP = LS / 2;  // one slot = one half-step vertical distance
-const SC = _isIPhone ? 4 : 8;   // number of staves on the page
+const SC = PROFILE.staffCount;   // number of staves on the page
 
 // iPhone: measure actual toolbar height, use remaining viewport for canvas
 const _iPhoneTBHeight = _isIPhone ? (document.querySelector('.tb')?.offsetHeight || 90) : 0;
@@ -766,13 +797,13 @@ const _iPhoneMT = 15;
 const _iPhoneMB = 30;
 const _iPhoneAvail = _isIPhone ? LH - _iPhoneMT - _iPhoneMB : 0;
 const _iPhoneGap = _isIPhone ? (_iPhoneAvail - SC * SH) / (SC - 1) : 0;
-const GAP = _isIPhone ? LS * 7 : 16.0 * MM;
+const GAP = PROFILE.gapFn(LS);
 const CONTENT_H = SC * SH + (SC-1) * GAP + MB;
 let MT = _isIPhone ? Math.round((LH - CONTENT_H) / 2) : LH - CONTENT_H;
 const LM = ML, RM = LW - MR;
 const NOTE_MIN_X = LM + 6;
 const HA = -15 * Math.PI / 180;
-const LINE_W = _isIPhone ? 1.4 : 0.6;
+const LINE_W = PROFILE.lineWidth;
 const OPEN_LW = LS * 0.2;
 const NH = STEP * 0.97;
 const NW = NH * 1.55;
@@ -782,11 +813,10 @@ const LEDGER_OVERHANG = 1.8;
 const LEDGER_W = NW + LEDGER_OVERHANG;
 const MAX_LEDGER_SLOT_ABOVE = -8;
 const MAX_LEDGER_SLOT_BELOW = 16;
-// iPhone: stricter limit for single-tap placement (3 ledger lines)
-const MAX_LEDGER_TAP_ABOVE = _isIPhone ? -6 : -8;
-const MAX_LEDGER_TAP_BELOW = _isIPhone ? 14 : 16;
-const _isTouch = window.matchMedia('(pointer:coarse)').matches;
-const PAPER = (_isTouch && !_isIPhone) ? '#E0D0AD' : '#F8F3E7', INK = '#1C1508', LINE = '#2A1E0E';
+// Stricter limit for single-tap placement on touch (avoids accidental far-ledger notes)
+const MAX_LEDGER_TAP_ABOVE = PROFILE.maxLedgerTapAbove;
+const MAX_LEDGER_TAP_BELOW = PROFILE.maxLedgerTapBelow;
+const PAPER = PROFILE.paper, INK = '#1C1508', LINE = '#2A1E0E';
 const SECOND_OFFSET = NW * 1.90;
 const STEM_LW = LINE_W * 1.6;
 const SNAP_R = NW * 4;
