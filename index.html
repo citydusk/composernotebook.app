@@ -2267,10 +2267,14 @@ function beamMembers(s1, s2){
   const xMax = Math.max(s1.x, s2.x) + 1;
   const up = stemIsUp(s1);
   const si = stemStaff(s1);
-  // Build the set of stem IDs that are endpoints of OTHER beams on this staff,
+  // Build the set of stem IDs that are endpoints of OTHER primary beams on this staff,
   // so we don't let two beams claim each other's interior stems when they overlap in X.
+  // Only layer-0 beams compete; child beams (16th/32nd) sit *inside* a primary group
+  // and their endpoints must remain valid members of that primary group.
   const foreignEndpoints = new Set();
   for(const b of beams){
+    if((b.layer||0)!==0) continue;
+    if(b.partial) continue;
     const bs1 = stems.find(s=>s.id===b.stemId1);
     const bs2 = stems.find(s=>s.id===b.stemId2);
     if(!bs1||!bs2) continue;
@@ -2307,21 +2311,62 @@ function repointBeamsAwayFrom(stemId){
 }
 
 
-// Draw a beam quad given an array of {x, tipY} points and stem direction
-function drawBeamQuad(pts, up, col, alpha){
+// Draw a beam quad given an array of {x, tipY} points and stem direction.
+// When parentGeom is provided (child beams), the quad is built from the parent's
+// bowed curve translated by a perpendicular-ish offset, guaranteeing strict
+// parallelism with the parent. Otherwise (primary beam), the quad uses pts directly.
+function drawBeamQuad(pts, up, col, alpha, parentGeom, layerOffset){
   if(pts.length < 2) return;
   const sign = up ? -1 : 1;
   const hw = STEM_LW / 2;
+  cx.save();
+  cx.globalAlpha = alpha ?? 1;
+  cx.fillStyle = col;
+  cx.beginPath();
+
+  if(parentGeom){
+    // Sample parent's bowed inner-edge curve at this child's endpoint x positions,
+    // then translate by layerOffset (toward the noteheads). The child's two long
+    // edges are translates of the same parent curve, so they stay strictly parallel
+    // to the parent and to each other.
+    const cx0 = pts[0].x - hw, cxN = pts[pts.length-1].x + hw;
+    // Solve t for a given x on the parent curve. Parent's x is linear in t since
+    // its control point sits at (px0+pxN)/2: x(t) = px0 + t*(pxN - px0).
+    const tAt = x => (parentGeom.pxN === parentGeom.px0) ? 0 : (x - parentGeom.px0) / (parentGeom.pxN - parentGeom.px0);
+    // Parent inner-edge y at parameter t (quadratic Bezier with control y = pmyi + pbow).
+    const yAtT = t => {
+      const u = 1 - t;
+      return u*u*parentGeom.py0i + 2*u*t*(parentGeom.pmyi + parentGeom.pbow) + t*t*parentGeom.pyNi;
+    };
+    const t0 = tAt(cx0), tN = tAt(cxN);
+    const y0i = yAtT(t0) + layerOffset;
+    const yNi = yAtT(tN) + layerOffset;
+    const y0o = y0i + sign*BEAM_H;
+    const yNo = yNi + sign*BEAM_H;
+    const cmx = (cx0 + cxN) / 2;
+    // Parent's curve y at x=cmx, then offset → midpoint of the child's inner edge
+    const myi = yAtT(tAt(cmx)) + layerOffset;
+    const myo = myi + sign*BEAM_H;
+    // Recover the Bezier control y that recreates the same shape over the child's span:
+    // for a quadratic, the curve at t=0.5 is (P0 + 2*Pc + P2)/4, so Pc = 2*midCurve - (P0+P2)/2.
+    const ctrlYi = 2*myi - (y0i + yNi)/2;
+    const ctrlYo = 2*myo - (y0o + yNo)/2;
+    cx.moveTo(cx0, y0i);
+    cx.quadraticCurveTo(cmx, ctrlYi, cxN, yNi);
+    cx.lineTo(cxN, yNo);
+    cx.quadraticCurveTo(cmx, ctrlYo, cx0, y0o);
+    cx.closePath();
+    cx.fill();
+    cx.restore();
+    return;
+  }
+
   const bow = sign * LS * 0.12; // bow away from noteheads
   const x0 = pts[0].x - hw, xN = pts[pts.length-1].x + hw;
   const mx = (x0 + xN) / 2;
   const y0i = pts[0].tipY, yNi = pts[pts.length-1].tipY;
   const y0o = y0i + sign*BEAM_H, yNo = yNi + sign*BEAM_H;
   const myi = (y0i + yNi) / 2, myo = (y0o + yNo) / 2;
-  cx.save();
-  cx.globalAlpha = alpha ?? 1;
-  cx.fillStyle = col;
-  cx.beginPath();
   // Inner edge (toward noteheads) — bowed
   cx.moveTo(x0, y0i);
   cx.quadraticCurveTo(mx, myi + bow, xN, yNi);
@@ -2334,7 +2379,7 @@ function drawBeamQuad(pts, up, col, alpha){
   cx.restore();
 }
 
-function drawBeam(beam, col, alpha, tipOverride, beamSlant){
+function drawBeam(beam, col, alpha, tipOverride, beamSlant, beamGeom){
   const s1 = stems.find(s=>s.id===beam.stemId1);
   const s2 = stems.find(s=>s.id===beam.stemId2);
   if(!s1||!s2) return;
@@ -2346,16 +2391,24 @@ function drawBeam(beam, col, alpha, tipOverride, beamSlant){
   if(beam.partial){
     const parentBeam = beams.find(b=>(b.layer||0)===0&&beamSharesPrimary(beam,b));
     const sl = parentBeam && beamSlant && beamSlant.get(parentBeam.id);
+    const pg = parentBeam && beamGeom && beamGeom.get(parentBeam.id);
     const BEAM_STEP = BEAM_H+BEAM_GAP;
     const stubLen = LS*1.2;
     const dir = beam.partial==='right' ? 1 : -1;
+    const x0 = s1.x, x1 = s1.x + dir*stubLen;
+    if(pg){
+      // Sample parent's bowed curve so the stub is strictly parallel.
+      const pts = [{x:Math.min(x0,x1), tipY:0}, {x:Math.max(x0,x1), tipY:0}];
+      drawBeamQuad(pts, up, col, alpha, pg, -sign*BEAM_STEP*layer);
+      return;
+    }
+    // Fallback (no parent): straight-line sample through stem tip
     const yAtX = x => {
       if(!sl) return (tipOverride&&tipOverride.has(s1.id)) ? tipOverride.get(s1.id) : stemTipY(s1);
       const spanX = sl.endRx - sl.endLx;
       const t = spanX>0.1 ? (x - sl.endLx)/spanX : 0;
       return sl.leftY + t*(sl.rightY - sl.leftY) - sign*BEAM_STEP*layer;
     };
-    const x0 = s1.x, x1 = s1.x + dir*stubLen;
     const pts = [{x:Math.min(x0,x1), tipY:yAtX(Math.min(x0,x1))}, {x:Math.max(x0,x1), tipY:yAtX(Math.max(x0,x1))}];
     drawBeamQuad(pts, up, col, alpha);
     return;
@@ -2369,12 +2422,19 @@ function drawBeam(beam, col, alpha, tipOverride, beamSlant){
     const pts = members.map(s=>({x:s.x, tipY:(tipOverride&&tipOverride.has(s.id)) ? tipOverride.get(s.id) : stemTipY(s)}));
     drawBeamQuad(pts, up, col, alpha);
   } else {
-    // Partial (16th/32nd) beam: sample the parent primary beam's slant line at this
+    // Child (16th/32nd) beam: sample the parent primary beam's bowed curve at this
     // beam's own endpoint x positions, then offset by BEAM_STEP * layer. This guarantees
-    // strict parallelism regardless of individual stem lengths.
+    // strict parallelism with the parent regardless of slant or bow.
     const parentBeam = beams.find(b=>(b.layer||0)===0&&beamSharesPrimary(beam,b));
     const sl = parentBeam && beamSlant && beamSlant.get(parentBeam.id);
+    const pg = parentBeam && beamGeom && beamGeom.get(parentBeam.id);
     const BEAM_STEP = BEAM_H+BEAM_GAP;
+    if(pg){
+      const pts = [s1,s2].sort((a,b)=>a.x-b.x).map(s=>({x:s.x, tipY:0}));
+      drawBeamQuad(pts, up, col, alpha, pg, -sign*BEAM_STEP*layer);
+      return;
+    }
+    // Fallback (no parent geometry available): straight-chord sample
     const yAtX = x => {
       if(!sl) return (tipOverride&&tipOverride.has(s1.id)) ? tipOverride.get(s1.id) : stemTipY(s1);
       const spanX = sl.endRx - sl.endLx;
@@ -2399,8 +2459,64 @@ function beamSharesPrimary(b, p){
   return hasStem(bs1)&&hasStem(bs2);
 }
 
-function drawBeamPreview(startStem, endX, endY, col, alpha){
+function drawBeamPreview(startStem, endX, endY, col, alpha, beamSlant, beamGeom){
   const up = stemIsUp(startStem);
+  const sign = up?-1:1;
+
+  // If start stem is part of a primary beam, check whether the target x falls
+  // on another member of the same primary group. If so, render a strict
+  // child-beam preview that hugs the existing beam — same bow, same parallelism,
+  // correct BEAM_STEP offset above the primary.
+  if(beamGeom){
+    let parentBeam=null, parentMembers=null;
+    for(const b of beams){
+      if((b.layer||0)!==0) continue;
+      if(b.partial) continue;
+      const bs1=stems.find(s=>s.id===b.stemId1);
+      const bs2=stems.find(s=>s.id===b.stemId2);
+      if(!bs1||!bs2) continue;
+      const members=beamMembers(bs1,bs2);
+      if(members.some(m=>m.id===startStem.id)){
+        parentBeam=b; parentMembers=members; break;
+      }
+    }
+    if(parentBeam){
+      const pg=beamGeom.get(parentBeam.id);
+      // Find the target stem at the cursor: prefer a member of the same primary.
+      const targetStem=findStemTip(endX, endY);
+      if(pg && targetStem && targetStem.id!==startStem.id
+         && parentMembers.some(m=>m.id===targetStem.id)){
+        // Determine the layer this new sub-beam would occupy: 1 + max layer of
+        // any existing beam covering the span between these two stems.
+        const xLo=Math.min(startStem.x,targetStem.x);
+        const xHi=Math.max(startStem.x,targetStem.x);
+        let maxLayer=0;
+        for(const b of beams){
+          const bs1=stems.find(s=>s.id===b.stemId1);
+          const bs2=stems.find(s=>s.id===b.stemId2);
+          if(!bs1||!bs2) continue;
+          const bxLo=Math.min(bs1.x,bs2.x), bxHi=Math.max(bs1.x,bs2.x);
+          if(bxLo<=xLo+0.5 && bxHi>=xHi-0.5){
+            const members=(b.layer||0)===0?beamMembers(bs1,bs2):[bs1,bs2];
+            if(members.some(m=>m.id===startStem.id)&&members.some(m=>m.id===targetStem.id)){
+              maxLayer=Math.max(maxLayer,(b.layer||0)+1);
+            }
+          }
+        }
+        const layer=Math.max(1,maxLayer);
+        const BEAM_STEP=BEAM_H+BEAM_GAP;
+        const ordered=[startStem,targetStem].sort((a,b)=>a.x-b.x);
+        const pts=ordered.map(s=>({x:s.x, tipY:0}));
+        drawBeamQuad(pts, up, col, alpha, pg, -sign*BEAM_STEP*layer);
+        return;
+      }
+    }
+  }
+
+  // Fallback: free-form preview from start stem tip to cursor (or hovered stem),
+  // straightening up intermediate member stems. Anchor to the visible tip
+  // (i.e. the primary beam line for beamed stems) so the preview lines up
+  // with what the user will actually see.
   const xMin = Math.min(startStem.x, endX) - 1;
   const xMax = Math.max(startStem.x, endX) + 1;
   const si = stemStaff(startStem);
@@ -2408,7 +2524,7 @@ function drawBeamPreview(startStem, endX, endY, col, alpha){
     .filter(s => stemIsUp(s) === up && s.x >= xMin && s.x <= xMax && stemStaff(s) === si)
     .sort((a, b) => a.x - b.x);
   // Straight line from startStem tip to ghost end, capped slant
-  let startY = stemTipY(startStem);
+  let startY = visualStemTipY(startStem);
   let slant = endY - startY;
   if(Math.abs(slant) > LS*4) slant = Math.sign(slant) * LS*4;
   const spanX = endX - startStem.x;
@@ -2419,7 +2535,7 @@ function drawBeamPreview(startStem, endX, endY, col, alpha){
     const lineY = startY + t * slant;
     // Lengthen only for intermediate stems
     const stem = members.find(s => Math.abs(s.x - x) < 1);
-    const tipY = stem ? (up ? Math.min(lineY, stemTipY(stem)) : Math.max(lineY, stemTipY(stem))) : lineY;
+    const tipY = stem ? (up ? Math.min(lineY, visualStemTipY(stem)) : Math.max(lineY, visualStemTipY(stem))) : lineY;
     return { x, tipY };
   });
   drawBeamQuad(allPts, up, col, alpha);
@@ -3009,6 +3125,7 @@ function render(){
   // Also store each primary beam's slant for child (16th) beams to sample from.
   const beamedTipY = new Map();
   const beamSlant  = new Map(); // beam.id → {endLx, leftY, endRx, rightY}
+  const beamGeom   = new Map(); // beam.id → {px0, pxN, py0i, pyNi, pmyi, pbow} for child/partial sampling
   beams.filter(b=>(b.layer||0)===0).forEach(b=>{
     const s1=stems.find(s=>s.id===b.stemId1);
     const s2=stems.find(s=>s.id===b.stemId2);
@@ -3026,6 +3143,16 @@ function render(){
       else  {if(leftY>rightY)rightY=leftY+capped;else leftY=rightY-capped;}
     }
     beamSlant.set(b.id,{endLx:endL.x,leftY,endRx:endR.x,rightY});
+    // Cache the parent's bow geometry so child beams can sample from the same
+    // curve and stay strictly parallel. Mirrors the math in drawBeamQuad.
+    const sign=up?-1:1, hw=STEM_LW/2;
+    const px0=endL.x-hw, pxN=endR.x+hw;
+    beamGeom.set(b.id,{
+      px0, pxN,
+      py0i:leftY, pyNi:rightY,
+      pmyi:(leftY+rightY)/2,
+      pbow:sign*LS*0.12,
+    });
     const spanX=endR.x-endL.x;
     members.forEach(s=>{
       const t=spanX>0.1?(s.x-endL.x)/spanX:0;
@@ -3062,7 +3189,7 @@ function render(){
       const primary=beams.find(p=>p.id===sel.id);
       if(primary&&(b.layer||0)!==0) selBeam=beamSharesPrimary(b,primary);
     }
-    drawBeam(b,(selS1||selS2||selBeam)?SEL_COL:INK,1,beamedTipY,beamSlant);
+    drawBeam(b,(selS1||selS2||selBeam)?SEL_COL:INK,1,beamedTipY,beamSlant,beamGeom);
   });
   flags.forEach(f=>{
     const selStem=selSet.some(s=>s.type==='stem'&&s.id===f.stemId);
@@ -3086,7 +3213,7 @@ function render(){
       if(!farInGroup&&farStem.id!==anchorStemId
         &&stemIsUp(farStem)===stemIsUp(anchorStem)
         &&stemStaff(farStem)===stemStaff(anchorStem)){
-        drawBeamPreview(anchorStem,farStem.x,stemTipY(farStem),'#5580CC',0.55);
+        drawBeamPreview(anchorStem,farStem.x,stemTipY(farStem),'#5580CC',0.55,beamSlant,beamGeom);
         return true;
       }
       return false;
@@ -3105,7 +3232,7 @@ function render(){
       }
     }
     if(!showedExtend){
-      drawBeamPreview(beamStartStem,beamGhostEnd.x,beamGhostEnd.y,'#5580CC',0.55);
+      drawBeamPreview(beamStartStem,beamGhostEnd.x,beamGhostEnd.y,'#5580CC',0.55,beamSlant,beamGeom);
     }
   }
   if(mode==='stem-beam'&&!beamDragging&&!stemDragging&&beamGhostEnd)
@@ -3119,13 +3246,13 @@ function render(){
     if(anchorStem){
       const targetStem=findStemTip(beamGhostEnd.x,beamGhostEnd.y);
       if(targetStem&&targetStem.id!==anchorStemId&&stemIsUp(targetStem)===stemIsUp(anchorStem)&&stemStaff(targetStem)===stemStaff(anchorStem)){
-        drawBeamPreview(anchorStem,targetStem.x,stemTipY(targetStem),SEL_COL,0.45);
+        drawBeamPreview(anchorStem,targetStem.x,stemTipY(targetStem),SEL_COL,0.45,beamSlant,beamGeom);
         // Draw a highlight dot on the target stem tip
         cx.save();cx.fillStyle=SEL_COL;cx.globalAlpha=0.6;
         cx.beginPath();cx.arc(targetStem.x,stemTipY(targetStem),LS*0.7,0,Math.PI*2);cx.fill();cx.restore();
       } else {
         // No valid target — draw preview from anchor to cursor
-        drawBeamPreview(anchorStem,beamGhostEnd.x,beamGhostEnd.y,SEL_COL,0.3);
+        drawBeamPreview(anchorStem,beamGhostEnd.x,beamGhostEnd.y,SEL_COL,0.3,beamSlant,beamGeom);
       }
     }
   }
@@ -3529,11 +3656,22 @@ function notationDown(x,y){
       if(d < r && d < hitTipDist){ hitTip=s; hitTipDist=d; }
     }
     if(hitTip){
-      sel={type:'stemTip',id:hitTip.id};
-      selSet=[];
-      selDragging=false;
-      selDragStart=null;
-      selDragOrig=null;
+      const alreadySelected = sel && sel.type==='stemTip' && sel.id===hitTip.id;
+      // Desktop: always allow drag on first click. iPad: require two taps (matches note/accidental/tie pattern).
+      if(alreadySelected || !_isTouch){
+        historyPush();
+        sel={type:'stemTip',id:hitTip.id};
+        selSet=[];
+        selDragging=true;
+        selDragStart={x,y};
+        selDragOrig={y2:hitTip.y2, y1:hitTip.y1, up:hitTip.y2<hitTip.y1};
+      } else {
+        sel={type:'stemTip',id:hitTip.id};
+        selSet=[];
+        selDragging=false;
+        selDragStart=null;
+        selDragOrig=null;
+      }
       render();return;
     }
 
@@ -3586,11 +3724,25 @@ function notationDown(x,y){
       if((hitBeam.layer||0)!==0){
         primaryBeam=beams.find(b=>(b.layer||0)===0&&beamSharesPrimary(hitBeam,b))||hitBeam;
       }
-      sel={type:'beam',id:primaryBeam.id};
-      selSet=[];
-      selDragging=false;
-      selDragStart=null;
-      selDragOrig=null;
+      const alreadySelected = sel && sel.type==='beam' && sel.id===primaryBeam.id;
+      // Desktop: always allow drag on first click. iPad: require two taps (matches note/accidental/tie pattern).
+      if(alreadySelected || !_isTouch){
+        const bs1=stems.find(s=>s.id===primaryBeam.stemId1);
+        const bs2=stems.find(s=>s.id===primaryBeam.stemId2);
+        const members = bs1&&bs2 ? beamMembers(bs1,bs2) : [];
+        historyPush();
+        sel={type:'beam',id:primaryBeam.id};
+        selSet=[];
+        selDragging=true;
+        selDragStart={x,y};
+        selDragOrig={members:members.map(s=>({id:s.id,y1:s.y1,y2:s.y2,up:s.y2<s.y1}))};
+      } else {
+        sel={type:'beam',id:primaryBeam.id};
+        selSet=[];
+        selDragging=false;
+        selDragStart=null;
+        selDragOrig=null;
+      }
       render();return;
     }
 
