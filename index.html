@@ -88,7 +88,7 @@ body.light .frame canvas{box-shadow:0 1px 4px rgba(0,0,0,.08)}
 .pen-opt:hover{background:rgba(128,128,128,0.2);}
 .clef-opt:hover{background:rgba(128,128,128,0.2);}
 body:not(.light) [data-pencolor="#1C1508"]:not(.on){border-color:rgba(255,255,255,0.25) !important;}
-.scroll-area{flex:1;overflow-y:auto;overflow-x:hidden;width:100%;display:flex;flex-direction:column;align-items:stretch;}
+.scroll-area{flex:1;overflow-y:auto;overflow-x:hidden;width:100%;display:flex;flex-direction:column;align-items:stretch;position:relative;}
 .grid-toggle{display:inline-flex;align-items:center;justify-content:center;min-width:36px;min-height:36px;cursor:pointer;padding:2px 4px;border-radius:14px;box-sizing:border-box;}
 .grid-toggle input{display:none;}
 .grid-toggle .track{width:28px;height:16px;border-radius:8px;background:#D8D0C8;border:0.5px solid #B0A898;position:relative;transition:background .15s;overflow:hidden;}
@@ -222,7 +222,7 @@ body:not(.light) [data-textcolor="#1C1508"].text-color:not(.on){border-color:rgb
 #addPage{position:absolute;bottom:20px;right:14px;z-index:3;width:28px;height:28px;border-radius:50%;font-size:18px;font-weight:300;background:transparent;border:none;color:#1C1508;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:opacity .25s;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;opacity:0.25;}
 #addPage:hover{opacity:0.7;}
 @media print{
-  .tb, #tooltip, #confirmDlg, #keySigMenu, #restSubMenu, #textToolbar, #textLabelEditor, #pageNav, #pageNum, #addPage, #utilMenu, #accMenu, #barlineMenu, #iPhoneUndoPill, #zoomPill, #landscapeBlock, #penSelectMenu, #pngBgPopup, #radialAccMenu, #trebleClefMenu, #bassClefMenu{display:none !important;}
+  .tb, #tooltip, #confirmDlg, #keySigMenu, #restSubMenu, #textToolbar, #textLabelEditor, #pageNav, #pageNum, #addPage, #utilMenu, #accMenu, #barlineMenu, #iPhoneUndoPill, #zoomPill, #landscapeBlock, #iphoneSplash, #penSelectMenu, #pngBgPopup, #radialAccMenu, #trebleClefMenu, #bassClefMenu{display:none !important;}
   html,body{height:auto;overflow:visible;background:#fff !important;margin:0;padding:0;}
   .outer{height:auto;width:100%;}
   .scroll-area{overflow:visible !important;height:auto !important;width:100%;}
@@ -333,6 +333,21 @@ body:not(.light) [data-textcolor="#1C1508"].text-color:not(.on){border-color:rgb
 }
 /* Landscape block — iPhone only */
 #landscapeBlock{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#1C1508;z-index:99999;align-items:center;justify-content:center;flex-direction:column;gap:12px;color:#F8F3E7;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;font-size:15px;}
+
+/* iPhone first-load splash — shown once on initial visit. Anchors inside
+   .scroll-area so it covers the music paper but not the toolbar. */
+#iphoneSplash{
+  display:none; position:absolute; inset:0;
+  background:rgba(45,45,45,0.92);
+  z-index:99998;
+  flex-direction:column; align-items:center; justify-content:center;
+  padding:32px calc(24px + env(safe-area-inset-right)) 32px calc(24px + env(safe-area-inset-left));
+  color:#F8F3E7; text-align:center; cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+#iphoneSplash h1{font-family:Georgia,serif;font-size:22px;font-weight:600;margin:0 0 28px 0;}
+#iphoneSplash p{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;font-size:16px;line-height:1.5;margin:0 0 18px 0;max-width:320px;}
+#iphoneSplash .tap-hint{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Helvetica Neue',sans-serif;margin-top:28px;font-size:13px;opacity:0.55;}
 @media (max-width:599px) and (pointer:coarse) and (orientation:landscape){
   #landscapeBlock{display:flex !important;}
   .outer{display:none !important;}
@@ -344,7 +359,13 @@ body:not(.light) [data-textcolor="#1C1508"].text-color:not(.on){border-color:rgb
 }
 </style>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+<!-- Tone.js: integrity hash pins the exact bytes of this CDN file.
+     If you bump the version below, you MUST recompute the hash, or
+     the browser will silently refuse to load Tone.js (audio breaks).
+     Recompute on macOS/Linux:
+       curl -sS <new-url> | openssl dgst -sha384 -binary | openssl base64 -A
+     Or check cdnjs's published hash: https://api.cdnjs.com/libraries/tone/<version>?fields=sri -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js" integrity="sha384-c6Uo4N9c3SOEigMVzP6IshUG1wQ5uMp3xeoQFiHWAQ86joWdgyajkvopySyKy/Z6" crossorigin="anonymous"></script>
 </head>
 <body>
 <div id="tooltip"></div>
@@ -455,16 +476,18 @@ body:not(.light) [data-textcolor="#1C1508"].text-color:not(.on){border-color:rgb
   <div class="iphone-break" style="display:none;"></div>
   <div class="sep"></div>
   <div class="grp" id="clefGrp">
-    <button class="btn" id="trebleClefBtn" data-mode="clef-treble" style="padding:2px 2px;position:relative;" title="treble clef"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="29" viewBox="0 0 10 20" style="display:block;"><path fill="#1C1508" d="M4.85,1.00 C4.64,1.00 4.49,1.20 4.36,1.37 C3.78,2.18 3.49,3.11 3.43,4.11 C3.42,4.27 3.42,4.43 3.42,4.59 C3.42,5.52 3.57,6.45 3.70,7.37 C3.70,7.44 3.72,7.51 3.73,7.57 C3.22,8.30 2.64,8.99 2.15,9.75 C1.80,10.29 1.43,10.83 1.19,11.43 C1.06,11.73 1.00,12.08 1.00,12.42 C1.00,13.13 1.24,13.86 1.66,14.26 C1.90,14.49 2.27,14.74 2.65,14.88 C3.18,15.07 3.71,15.20 4.27,15.20 C4.43,15.20 4.61,15.19 4.78,15.16 L4.91,15.14 C4.91,15.14 4.93,15.24 4.91,15.30 C4.79,15.99 4.62,16.67 4.20,17.24 C3.99,17.54 3.78,17.87 3.34,17.91 C3.22,17.92 3.16,18.00 3.16,18.10 C3.16,18.15 3.17,18.18 3.18,18.23 C3.25,18.40 3.33,18.58 3.41,18.76 C3.48,18.92 3.60,19.00 3.73,19.00 L3.73,19.00 C3.79,19.00 3.85,18.99 3.92,18.96 C4.05,18.92 4.17,18.85 4.26,18.75 C5.21,17.75 5.60,16.54 5.64,15.20 C5.64,15.09 5.65,14.92 5.65,14.92 C5.65,14.92 5.81,14.83 5.88,14.81 C6.26,14.62 6.62,14.42 6.96,14.15 C7.83,13.45 8.33,12.50 8.56,11.45 C8.61,11.27 8.62,11.10 8.62,10.94 C8.62,10.22 8.22,9.69 7.30,9.52 C7.07,9.47 6.84,9.45 6.61,9.45 C6.04,9.45 5.49,9.60 4.97,9.91 C4.90,9.94 4.84,9.99 4.84,9.99 L4.54,8.87 C4.52,8.82 4.52,8.71 4.52,8.71 C4.52,8.71 5.70,6.64 5.86,5.57 C5.91,5.26 5.94,4.95 5.94,4.64 C5.94,4.40 5.93,4.17 5.89,3.94 C5.78,3.11 5.47,2.33 5.26,1.53 C5.20,1.29 5.12,1.00 4.85,1.00 Z M4.84,2.33 C4.97,2.76 5.04,3.18 5.04,3.62 C5.04,3.84 5.02,4.06 4.98,4.29 C4.83,5.19 4.63,6.06 4.19,6.87 C4.10,6.32 4.04,5.77 4.04,5.23 C4.04,4.24 4.25,3.26 4.84,2.33 Z M4.07,9.27 L4.15,9.52 C4.24,9.81 4.32,10.26 4.32,10.26 C4.32,10.26 4.00,10.68 3.79,10.88 C3.22,11.45 2.94,12.15 2.94,12.92 C2.94,13.11 2.96,13.31 3.00,13.51 C3.01,13.56 3.01,13.59 3.01,13.66 C2.85,13.65 2.71,13.59 2.56,13.55 C2.26,13.44 2.01,13.33 1.93,13.13 C1.90,13.04 1.89,12.94 1.89,12.84 C1.89,12.71 1.91,12.57 1.93,12.43 C1.94,12.36 2.01,12.17 2.03,12.14 C2.48,11.34 3.02,10.62 3.58,9.90 Z M5.97,10.97 C6.26,10.97 6.53,11.00 6.82,11.05 C7.16,11.12 7.51,11.18 7.77,11.46 C7.80,11.48 7.82,11.50 7.84,11.51 C7.38,12.43 6.71,13.12 5.74,13.55 L5.53,13.63 L5.49,13.31 C5.40,12.56 5.22,11.96 5.06,11.24 C5.05,11.16 5.05,11.10 5.09,11.05 C5.39,11.00 5.67,10.97 5.97,10.97 Z M4.51,11.48 C4.56,11.50 4.57,11.54 4.58,11.61 C4.68,12.28 4.86,12.95 4.90,13.63 C4.91,13.70 4.90,13.80 4.90,13.80 C4.90,13.80 4.61,13.88 4.27,13.86 C3.87,13.86 3.48,13.75 3.48,13.75 C3.48,13.75 3.45,13.59 3.45,13.36 C3.45,13.21 3.46,13.03 3.50,12.85 C3.62,12.30 4.01,11.91 4.42,11.54 C4.45,11.51 4.48,11.48 4.51,11.48 Z"/></svg></button>
-    <button class="btn" id="bassClefBtn" data-mode="clef-bass" style="padding:2px 2px;position:relative;" title="bass clef"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="26" viewBox="0 0 14 20" style="display:block;"><path fill="#1C1508" d="M5.11,13.41 C7.06,13.13 8.33,11.98 9.23,10.33 C9.82,9.24 9.95,8.06 9.97,6.73 C9.97,6.51 9.94,6.17 9.89,5.85 C9.66,3.96 8.40,3.00 6.74,3.00 C6.62,3.00 6.49,3.00 6.37,3.02 C4.82,3.15 3.45,3.71 2.34,4.81 C1.86,5.30 1.38,5.79 1.18,6.48 C1.12,6.70 1.09,6.91 1.09,7.10 C1.09,7.76 1.44,8.29 2.15,8.62 C2.19,8.63 2.22,8.66 2.27,8.68 C2.49,8.80 2.70,8.85 2.90,8.85 C3.20,8.85 3.48,8.74 3.74,8.52 C4.33,8.04 4.60,7.45 4.60,6.79 C4.60,6.55 4.57,6.32 4.51,6.08 C4.50,5.99 4.48,5.90 4.48,5.82 C4.48,5.42 4.72,5.14 5.19,5.11 C5.31,5.09 5.41,5.09 5.51,5.09 C6.22,5.09 6.87,5.30 7.39,5.82 C8.05,6.46 8.42,7.31 8.62,8.23 C8.65,8.34 8.65,8.46 8.65,8.55 C8.65,8.88 8.54,9.18 8.34,9.49 C8.05,9.97 7.69,10.39 7.22,10.74 C6.31,11.43 5.25,11.73 4.14,11.73 C3.82,11.73 3.51,11.73 3.18,11.73 C2.58,11.73 1.99,11.70 1.40,11.52 C1.18,11.45 1.00,11.63 1.00,11.83 C1.00,11.88 1.00,11.92 1.02,11.97 C1.06,12.13 1.10,12.29 1.18,12.44 C1.35,12.82 1.52,13.19 2.03,13.29 C2.68,13.43 3.30,13.50 3.95,13.50 C4.33,13.50 4.72,13.47 5.11,13.41 Z M10.95,9.06 C11.48,9.05 11.96,8.34 11.96,7.70 C11.96,7.26 11.71,7.34 11.50,7.26 C11.28,7.17 11.22,7.35 11.13,7.48 C10.87,7.87 10.87,8.32 10.72,8.74 C10.66,8.90 10.72,9.06 10.92,9.06 Z M11.43,5.24 C11.66,5.26 11.94,5.20 12.06,4.98 C12.25,4.65 12.44,4.34 12.44,3.94 C12.44,3.84 12.43,3.72 12.40,3.60 C12.28,3.15 11.94,3.35 11.71,3.24 C11.53,3.15 11.48,3.38 11.41,3.50 C11.13,3.93 11.20,4.44 11.07,4.92 C11.03,5.08 11.10,5.26 11.32,5.26 C11.35,5.26 11.40,5.24 11.43,5.24 Z"/></svg></button>
+    <button class="btn" id="trebleClefBtn" data-mode="clef-treble-bravura" style="padding:2px 2px;position:relative;" title="treble clef"><svg xmlns="http://www.w3.org/2000/svg" width="11" height="30" viewBox="0 -0.348 0.671 1.756" style="display:block;"><path fill="#1C1508" d="M 0.4700,-0.1930 C 0.5030,-0.1930 0.5300,-0.1660 0.5300,-0.1110 C 0.5300,-0.0420 0.4970,0.0220 0.4190,0.1000 C 0.4030,0.1160 0.3790,0.1390 0.3560,0.1590 C 0.3490,0.1650 0.3450,0.1640 0.3430,0.1510 C 0.3390,0.1250 0.3370,0.0910 0.3370,0.0590 C 0.3370,-0.0970 0.4090,-0.1930 0.4700,-0.1930 Z M 0.4300,0.6470 C 0.4280,0.6350 0.4290,0.6320 0.4410,0.6330 C 0.5220,0.6400 0.5890,0.7080 0.5890,0.7960 C 0.5890,0.8590 0.5510,0.9100 0.4950,0.9380 C 0.4830,0.9440 0.4810,0.9440 0.4790,0.9320 Z M 0.3610,0.4880 C 0.3640,0.5070 0.3640,0.5060 0.3460,0.5120 C 0.2580,0.5420 0.2010,0.6210 0.2010,0.7060 C 0.2010,0.7960 0.2480,0.8600 0.3160,0.8830 C 0.3240,0.8860 0.3360,0.8890 0.3430,0.8890 C 0.3510,0.8890 0.3550,0.8840 0.3550,0.8780 C 0.3550,0.8710 0.3470,0.8680 0.3400,0.8650 C 0.2980,0.8470 0.2680,0.8040 0.2680,0.7580 C 0.2680,0.7010 0.3070,0.6580 0.3680,0.6410 C 0.3840,0.6370 0.3860,0.6380 0.3880,0.6490 L 0.4380,0.9470 C 0.4400,0.9580 0.4390,0.9580 0.4240,0.9610 C 0.4080,0.9640 0.3880,0.9660 0.3680,0.9660 C 0.1930,0.9660 0.0800,0.8690 0.0800,0.7300 C 0.0800,0.6710 0.0900,0.5920 0.1730,0.4980 C 0.2330,0.4310 0.2790,0.3940 0.3260,0.3560 C 0.3360,0.3480 0.3380,0.3490 0.3400,0.3600 Z M 0.3760,0.3350 C 0.3740,0.3230 0.3760,0.3220 0.3820,0.3160 C 0.3980,0.3010 0.4190,0.2800 0.4380,0.2590 C 0.5220,0.1670 0.5720,0.0480 0.5720,-0.0650 C 0.5720,-0.1520 0.5480,-0.2380 0.5070,-0.2980 C 0.4920,-0.3200 0.4660,-0.3480 0.4550,-0.3480 C 0.4410,-0.3480 0.4100,-0.3220 0.3900,-0.3000 C 0.3160,-0.2180 0.2920,-0.0930 0.2920,0.0110 C 0.2920,0.0690 0.2990,0.1340 0.3060,0.1750 C 0.3080,0.1870 0.3090,0.1890 0.2970,0.1990 C 0.2330,0.2520 0.1640,0.3130 0.1120,0.3770 C 0.0430,0.4630 0.0000,0.5560 0.0000,0.6630 C 0.0000,0.8370 0.1190,1.0020 0.3640,1.0020 C 0.3870,1.0020 0.4130,1.0000 0.4330,0.9960 C 0.4440,0.9940 0.4460,0.9930 0.4480,1.0050 C 0.4600,1.0720 0.4750,1.1590 0.4750,1.2060 C 0.4750,1.3540 0.3750,1.3720 0.3160,1.3720 C 0.2620,1.3720 0.2360,1.3560 0.2360,1.3430 C 0.2360,1.3360 0.2450,1.3330 0.2680,1.3260 C 0.2990,1.3170 0.3350,1.2900 0.3350,1.2320 C 0.3350,1.1770 0.3000,1.1300 0.2390,1.1300 C 0.1720,1.1300 0.1320,1.1830 0.1320,1.2450 C 0.1320,1.3100 0.1710,1.4080 0.3220,1.4080 C 0.3890,1.4080 0.5190,1.3780 0.5190,1.2080 C 0.5190,1.1510 0.5010,1.0560 0.4900,0.9940 C 0.4880,0.9820 0.4890,0.9830 0.5030,0.9770 C 0.6040,0.9370 0.6710,0.8520 0.6710,0.7390 C 0.6710,0.6110 0.5770,0.4980 0.4300,0.4980 C 0.4040,0.4980 0.4040,0.4980 0.4010,0.4800 Z"/></svg></button>
+    <button class="btn" id="bassClefBtn" data-mode="clef-bass-bravura" style="padding:2px 2px;position:relative;" title="bass clef"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="15" viewBox="0 -0.012 0.689 0.897" style="display:block;"><path fill="#1C1508" d="M 0.2570,-0.0120 C 0.0830,-0.0120 0.0050,0.1150 0.0050,0.2110 C 0.0050,0.2910 0.0470,0.3600 0.1280,0.3600 C 0.1910,0.3600 0.2340,0.3160 0.2340,0.2540 C 0.2340,0.1900 0.1870,0.1500 0.1380,0.1500 C 0.1110,0.1500 0.1010,0.1570 0.0880,0.1570 C 0.0750,0.1570 0.0720,0.1490 0.0720,0.1390 C 0.0720,0.0990 0.1320,0.0260 0.2340,0.0260 C 0.3400,0.0260 0.3860,0.1300 0.3860,0.2870 C 0.3860,0.3900 0.3640,0.5100 0.3020,0.6060 C 0.2420,0.6990 0.1390,0.7840 0.0150,0.8550 C 0.0060,0.8600 0.0000,0.8650 0.0000,0.8730 C 0.0000,0.8790 0.0040,0.8850 0.0130,0.8850 C 0.0180,0.8850 0.0240,0.8830 0.0300,0.8800 C 0.1630,0.8150 0.2910,0.7390 0.3970,0.6250 C 0.4840,0.5310 0.5360,0.4090 0.5360,0.2780 C 0.5360,0.1040 0.4300,-0.0120 0.2570,-0.0120 Z M 0.6350,0.3210 C 0.6040,0.3210 0.5810,0.3440 0.5810,0.3750 C 0.5810,0.4060 0.6040,0.4290 0.6350,0.4290 C 0.6660,0.4290 0.6890,0.4060 0.6890,0.3750 C 0.6890,0.3440 0.6660,0.3210 0.6350,0.3210 Z M 0.6340,0.0700 C 0.6030,0.0700 0.5790,0.0940 0.5790,0.1250 C 0.5790,0.1560 0.6030,0.1800 0.6340,0.1800 C 0.6650,0.1800 0.6890,0.1560 0.6890,0.1250 C 0.6890,0.0940 0.6650,0.0700 0.6340,0.0700 Z"/></svg></button>
   </div>
   <div id="trebleClefMenu" style="display:none;position:fixed;background:var(--grp-bg);color:var(--select-color);border:0.5px solid var(--select-border);border-radius:3px;box-shadow:0 2px 8px rgba(0,0,0,0.18);z-index:99999;padding:4px;flex-direction:column;gap:2px;min-width:36px;">
-    <span class="clef-opt" data-clefmode="clef-treble" style="padding:4px 8px;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:3px;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="29" viewBox="0 0 10 20" style="display:block;"><path fill="currentColor" d="M4.85,1.00 C4.64,1.00 4.49,1.20 4.36,1.37 C3.78,2.18 3.49,3.11 3.43,4.11 C3.42,4.27 3.42,4.43 3.42,4.59 C3.42,5.52 3.57,6.45 3.70,7.37 C3.70,7.44 3.72,7.51 3.73,7.57 C3.22,8.30 2.64,8.99 2.15,9.75 C1.80,10.29 1.43,10.83 1.19,11.43 C1.06,11.73 1.00,12.08 1.00,12.42 C1.00,13.13 1.24,13.86 1.66,14.26 C1.90,14.49 2.27,14.74 2.65,14.88 C3.18,15.07 3.71,15.20 4.27,15.20 C4.43,15.20 4.61,15.19 4.78,15.16 L4.91,15.14 C4.91,15.14 4.93,15.24 4.91,15.30 C4.79,15.99 4.62,16.67 4.20,17.24 C3.99,17.54 3.78,17.87 3.34,17.91 C3.22,17.92 3.16,18.00 3.16,18.10 C3.16,18.15 3.17,18.18 3.18,18.23 C3.25,18.40 3.33,18.58 3.41,18.76 C3.48,18.92 3.60,19.00 3.73,19.00 L3.73,19.00 C3.79,19.00 3.85,18.99 3.92,18.96 C4.05,18.92 4.17,18.85 4.26,18.75 C5.21,17.75 5.60,16.54 5.64,15.20 C5.64,15.09 5.65,14.92 5.65,14.92 C5.65,14.92 5.81,14.83 5.88,14.81 C6.26,14.62 6.62,14.42 6.96,14.15 C7.83,13.45 8.33,12.50 8.56,11.45 C8.61,11.27 8.62,11.10 8.62,10.94 C8.62,10.22 8.22,9.69 7.30,9.52 C7.07,9.47 6.84,9.45 6.61,9.45 C6.04,9.45 5.49,9.60 4.97,9.91 C4.90,9.94 4.84,9.99 4.84,9.99 L4.54,8.87 C4.52,8.82 4.52,8.71 4.52,8.71 C4.52,8.71 5.70,6.64 5.86,5.57 C5.91,5.26 5.94,4.95 5.94,4.64 C5.94,4.40 5.93,4.17 5.89,3.94 C5.78,3.11 5.47,2.33 5.26,1.53 C5.20,1.29 5.12,1.00 4.85,1.00 Z M4.84,2.33 C4.97,2.76 5.04,3.18 5.04,3.62 C5.04,3.84 5.02,4.06 4.98,4.29 C4.83,5.19 4.63,6.06 4.19,6.87 C4.10,6.32 4.04,5.77 4.04,5.23 C4.04,4.24 4.25,3.26 4.84,2.33 Z M4.07,9.27 L4.15,9.52 C4.24,9.81 4.32,10.26 4.32,10.26 C4.32,10.26 4.00,10.68 3.79,10.88 C3.22,11.45 2.94,12.15 2.94,12.92 C2.94,13.11 2.96,13.31 3.00,13.51 C3.01,13.56 3.01,13.59 3.01,13.66 C2.85,13.65 2.71,13.59 2.56,13.55 C2.26,13.44 2.01,13.33 1.93,13.13 C1.90,13.04 1.89,12.94 1.89,12.84 C1.89,12.71 1.91,12.57 1.93,12.43 C1.94,12.36 2.01,12.17 2.03,12.14 C2.48,11.34 3.02,10.62 3.58,9.90 Z M5.97,10.97 C6.26,10.97 6.53,11.00 6.82,11.05 C7.16,11.12 7.51,11.18 7.77,11.46 C7.80,11.48 7.82,11.50 7.84,11.51 C7.38,12.43 6.71,13.12 5.74,13.55 L5.53,13.63 L5.49,13.31 C5.40,12.56 5.22,11.96 5.06,11.24 C5.05,11.16 5.05,11.10 5.09,11.05 C5.39,11.00 5.67,10.97 5.97,10.97 Z M4.51,11.48 C4.56,11.50 4.57,11.54 4.58,11.61 C4.68,12.28 4.86,12.95 4.90,13.63 C4.91,13.70 4.90,13.80 4.90,13.80 C4.90,13.80 4.61,13.88 4.27,13.86 C3.87,13.86 3.48,13.75 3.48,13.75 C3.48,13.75 3.45,13.59 3.45,13.36 C3.45,13.21 3.46,13.03 3.50,12.85 C3.62,12.30 4.01,11.91 4.42,11.54 C4.45,11.51 4.48,11.48 4.51,11.48 Z"/></svg></span>
-    <span class="clef-opt" data-clefmode="clef-treble-hand" style="padding:4px 8px;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:3px;"><svg xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision" width="11" height="27" viewBox="3.7 0.2 11.2 27.6" style="display:block;"><path d="M 9.9 27.0 L 9.5 1.0 C 20.2 6.2 -0.5 14.6 5.7 21.4 C 10.9 27.0 19.1 13.5 10.2 14.7" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    <span class="clef-opt" data-clefmode="clef-treble-bravura" style="padding:4px 8px;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:3px;"><svg xmlns="http://www.w3.org/2000/svg" width="11" height="30" viewBox="0 -0.348 0.671 1.756" style="display:block;"><path fill="currentColor" d="M 0.4700,-0.1930 C 0.5030,-0.1930 0.5300,-0.1660 0.5300,-0.1110 C 0.5300,-0.0420 0.4970,0.0220 0.4190,0.1000 C 0.4030,0.1160 0.3790,0.1390 0.3560,0.1590 C 0.3490,0.1650 0.3450,0.1640 0.3430,0.1510 C 0.3390,0.1250 0.3370,0.0910 0.3370,0.0590 C 0.3370,-0.0970 0.4090,-0.1930 0.4700,-0.1930 Z M 0.4300,0.6470 C 0.4280,0.6350 0.4290,0.6320 0.4410,0.6330 C 0.5220,0.6400 0.5890,0.7080 0.5890,0.7960 C 0.5890,0.8590 0.5510,0.9100 0.4950,0.9380 C 0.4830,0.9440 0.4810,0.9440 0.4790,0.9320 Z M 0.3610,0.4880 C 0.3640,0.5070 0.3640,0.5060 0.3460,0.5120 C 0.2580,0.5420 0.2010,0.6210 0.2010,0.7060 C 0.2010,0.7960 0.2480,0.8600 0.3160,0.8830 C 0.3240,0.8860 0.3360,0.8890 0.3430,0.8890 C 0.3510,0.8890 0.3550,0.8840 0.3550,0.8780 C 0.3550,0.8710 0.3470,0.8680 0.3400,0.8650 C 0.2980,0.8470 0.2680,0.8040 0.2680,0.7580 C 0.2680,0.7010 0.3070,0.6580 0.3680,0.6410 C 0.3840,0.6370 0.3860,0.6380 0.3880,0.6490 L 0.4380,0.9470 C 0.4400,0.9580 0.4390,0.9580 0.4240,0.9610 C 0.4080,0.9640 0.3880,0.9660 0.3680,0.9660 C 0.1930,0.9660 0.0800,0.8690 0.0800,0.7300 C 0.0800,0.6710 0.0900,0.5920 0.1730,0.4980 C 0.2330,0.4310 0.2790,0.3940 0.3260,0.3560 C 0.3360,0.3480 0.3380,0.3490 0.3400,0.3600 Z M 0.3760,0.3350 C 0.3740,0.3230 0.3760,0.3220 0.3820,0.3160 C 0.3980,0.3010 0.4190,0.2800 0.4380,0.2590 C 0.5220,0.1670 0.5720,0.0480 0.5720,-0.0650 C 0.5720,-0.1520 0.5480,-0.2380 0.5070,-0.2980 C 0.4920,-0.3200 0.4660,-0.3480 0.4550,-0.3480 C 0.4410,-0.3480 0.4100,-0.3220 0.3900,-0.3000 C 0.3160,-0.2180 0.2920,-0.0930 0.2920,0.0110 C 0.2920,0.0690 0.2990,0.1340 0.3060,0.1750 C 0.3080,0.1870 0.3090,0.1890 0.2970,0.1990 C 0.2330,0.2520 0.1640,0.3130 0.1120,0.3770 C 0.0430,0.4630 0.0000,0.5560 0.0000,0.6630 C 0.0000,0.8370 0.1190,1.0020 0.3640,1.0020 C 0.3870,1.0020 0.4130,1.0000 0.4330,0.9960 C 0.4440,0.9940 0.4460,0.9930 0.4480,1.0050 C 0.4600,1.0720 0.4750,1.1590 0.4750,1.2060 C 0.4750,1.3540 0.3750,1.3720 0.3160,1.3720 C 0.2620,1.3720 0.2360,1.3560 0.2360,1.3430 C 0.2360,1.3360 0.2450,1.3330 0.2680,1.3260 C 0.2990,1.3170 0.3350,1.2900 0.3350,1.2320 C 0.3350,1.1770 0.3000,1.1300 0.2390,1.1300 C 0.1720,1.1300 0.1320,1.1830 0.1320,1.2450 C 0.1320,1.3100 0.1710,1.4080 0.3220,1.4080 C 0.3890,1.4080 0.5190,1.3780 0.5190,1.2080 C 0.5190,1.1510 0.5010,1.0560 0.4900,0.9940 C 0.4880,0.9820 0.4890,0.9830 0.5030,0.9770 C 0.6040,0.9370 0.6710,0.8520 0.6710,0.7390 C 0.6710,0.6110 0.5770,0.4980 0.4300,0.4980 C 0.4040,0.4980 0.4040,0.4980 0.4010,0.4800 Z"/></svg></span>
+    <span class="clef-opt" data-clefmode="clef-treble" style="padding:4px 8px;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:3px;"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="29" viewBox="1 1 7.62 18" style="display:block;"><path fill="currentColor" d="M4.85,1.00 C4.64,1.00 4.49,1.20 4.36,1.37 C3.78,2.18 3.49,3.11 3.43,4.11 C3.42,4.27 3.42,4.43 3.42,4.59 C3.42,5.52 3.57,6.45 3.70,7.37 C3.70,7.44 3.72,7.51 3.73,7.57 C3.22,8.30 2.64,8.99 2.15,9.75 C1.80,10.29 1.43,10.83 1.19,11.43 C1.06,11.73 1.00,12.08 1.00,12.42 C1.00,13.13 1.24,13.86 1.66,14.26 C1.90,14.49 2.27,14.74 2.65,14.88 C3.18,15.07 3.71,15.20 4.27,15.20 C4.43,15.20 4.61,15.19 4.78,15.16 L4.91,15.14 C4.91,15.14 4.93,15.24 4.91,15.30 C4.79,15.99 4.62,16.67 4.20,17.24 C3.99,17.54 3.78,17.87 3.34,17.91 C3.22,17.92 3.16,18.00 3.16,18.10 C3.16,18.15 3.17,18.18 3.18,18.23 C3.25,18.40 3.33,18.58 3.41,18.76 C3.48,18.92 3.60,19.00 3.73,19.00 L3.73,19.00 C3.79,19.00 3.85,18.99 3.92,18.96 C4.05,18.92 4.17,18.85 4.26,18.75 C5.21,17.75 5.60,16.54 5.64,15.20 C5.64,15.09 5.65,14.92 5.65,14.92 C5.65,14.92 5.81,14.83 5.88,14.81 C6.26,14.62 6.62,14.42 6.96,14.15 C7.83,13.45 8.33,12.50 8.56,11.45 C8.61,11.27 8.62,11.10 8.62,10.94 C8.62,10.22 8.22,9.69 7.30,9.52 C7.07,9.47 6.84,9.45 6.61,9.45 C6.04,9.45 5.49,9.60 4.97,9.91 C4.90,9.94 4.84,9.99 4.84,9.99 L4.54,8.87 C4.52,8.82 4.52,8.71 4.52,8.71 C4.52,8.71 5.70,6.64 5.86,5.57 C5.91,5.26 5.94,4.95 5.94,4.64 C5.94,4.40 5.93,4.17 5.89,3.94 C5.78,3.11 5.47,2.33 5.26,1.53 C5.20,1.29 5.12,1.00 4.85,1.00 Z M4.84,2.33 C4.97,2.76 5.04,3.18 5.04,3.62 C5.04,3.84 5.02,4.06 4.98,4.29 C4.83,5.19 4.63,6.06 4.19,6.87 C4.10,6.32 4.04,5.77 4.04,5.23 C4.04,4.24 4.25,3.26 4.84,2.33 Z M4.07,9.27 L4.15,9.52 C4.24,9.81 4.32,10.26 4.32,10.26 C4.32,10.26 4.00,10.68 3.79,10.88 C3.22,11.45 2.94,12.15 2.94,12.92 C2.94,13.11 2.96,13.31 3.00,13.51 C3.01,13.56 3.01,13.59 3.01,13.66 C2.85,13.65 2.71,13.59 2.56,13.55 C2.26,13.44 2.01,13.33 1.93,13.13 C1.90,13.04 1.89,12.94 1.89,12.84 C1.89,12.71 1.91,12.57 1.93,12.43 C1.94,12.36 2.01,12.17 2.03,12.14 C2.48,11.34 3.02,10.62 3.58,9.90 Z M5.97,10.97 C6.26,10.97 6.53,11.00 6.82,11.05 C7.16,11.12 7.51,11.18 7.77,11.46 C7.80,11.48 7.82,11.50 7.84,11.51 C7.38,12.43 6.71,13.12 5.74,13.55 L5.53,13.63 L5.49,13.31 C5.40,12.56 5.22,11.96 5.06,11.24 C5.05,11.16 5.05,11.10 5.09,11.05 C5.39,11.00 5.67,10.97 5.97,10.97 Z M4.51,11.48 C4.56,11.50 4.57,11.54 4.58,11.61 C4.68,12.28 4.86,12.95 4.90,13.63 C4.91,13.70 4.90,13.80 4.90,13.80 C4.90,13.80 4.61,13.88 4.27,13.86 C3.87,13.86 3.48,13.75 3.48,13.75 C3.48,13.75 3.45,13.59 3.45,13.36 C3.45,13.21 3.46,13.03 3.50,12.85 C3.62,12.30 4.01,11.91 4.42,11.54 C4.45,11.51 4.48,11.48 4.51,11.48 Z"/></svg></span>
+    <span class="clef-opt" data-clefmode="clef-treble-hand" style="padding:4px 8px;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:3px;"><svg xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision" width="11" height="28" viewBox="3.916 0.4 10.833 27.2" style="display:block;"><path d="M 9.9 27.0 L 9.5 1.0 C 20.2 6.2 -0.5 14.6 5.7 21.4 C 10.9 27.0 19.1 13.5 10.2 14.7" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
   </div>
   <div id="bassClefMenu" style="display:none;position:fixed;background:var(--grp-bg);color:var(--select-color);border:0.5px solid var(--select-border);border-radius:3px;box-shadow:0 2px 8px rgba(0,0,0,0.18);z-index:99999;padding:4px;flex-direction:column;gap:2px;min-width:36px;">
-    <span class="clef-opt" data-clefmode="clef-bass" style="padding:4px 8px;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:3px;"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="26" viewBox="0 0 14 20" style="display:block;"><path fill="currentColor" d="M5.11,13.41 C7.06,13.13 8.33,11.98 9.23,10.33 C9.82,9.24 9.95,8.06 9.97,6.73 C9.97,6.51 9.94,6.17 9.89,5.85 C9.66,3.96 8.40,3.00 6.74,3.00 C6.62,3.00 6.49,3.00 6.37,3.02 C4.82,3.15 3.45,3.71 2.34,4.81 C1.86,5.30 1.38,5.79 1.18,6.48 C1.12,6.70 1.09,6.91 1.09,7.10 C1.09,7.76 1.44,8.29 2.15,8.62 C2.19,8.63 2.22,8.66 2.27,8.68 C2.49,8.80 2.70,8.85 2.90,8.85 C3.20,8.85 3.48,8.74 3.74,8.52 C4.33,8.04 4.60,7.45 4.60,6.79 C4.60,6.55 4.57,6.32 4.51,6.08 C4.50,5.99 4.48,5.90 4.48,5.82 C4.48,5.42 4.72,5.14 5.19,5.11 C5.31,5.09 5.41,5.09 5.51,5.09 C6.22,5.09 6.87,5.30 7.39,5.82 C8.05,6.46 8.42,7.31 8.62,8.23 C8.65,8.34 8.65,8.46 8.65,8.55 C8.65,8.88 8.54,9.18 8.34,9.49 C8.05,9.97 7.69,10.39 7.22,10.74 C6.31,11.43 5.25,11.73 4.14,11.73 C3.82,11.73 3.51,11.73 3.18,11.73 C2.58,11.73 1.99,11.70 1.40,11.52 C1.18,11.45 1.00,11.63 1.00,11.83 C1.00,11.88 1.00,11.92 1.02,11.97 C1.06,12.13 1.10,12.29 1.18,12.44 C1.35,12.82 1.52,13.19 2.03,13.29 C2.68,13.43 3.30,13.50 3.95,13.50 C4.33,13.50 4.72,13.47 5.11,13.41 Z M10.95,9.06 C11.48,9.05 11.96,8.34 11.96,7.70 C11.96,7.26 11.71,7.34 11.50,7.26 C11.28,7.17 11.22,7.35 11.13,7.48 C10.87,7.87 10.87,8.32 10.72,8.74 C10.66,8.90 10.72,9.06 10.92,9.06 Z M11.43,5.24 C11.66,5.26 11.94,5.20 12.06,4.98 C12.25,4.65 12.44,4.34 12.44,3.94 C12.44,3.84 12.43,3.72 12.40,3.60 C12.28,3.15 11.94,3.35 11.71,3.24 C11.53,3.15 11.48,3.38 11.41,3.50 C11.13,3.93 11.20,4.44 11.07,4.92 C11.03,5.08 11.10,5.26 11.32,5.26 C11.35,5.26 11.40,5.24 11.43,5.24 Z"/></svg></span>
-    <span class="clef-opt" data-clefmode="clef-bass-hand" style="padding:4px 8px;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:3px;"><svg xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision" width="20" height="29" viewBox="-2 0 20 24" style="display:block;"><path d="M 1.4 7.0 C -0.5 5.7 5.6 0.3 9.0 2.2 C 15.6 6.0 8.8 14.6 7.4 20.0" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><line x1="14.2" y1="3.5" x2="15.1" y2="4.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="14.9" y1="8.9" x2="14.0" y2="7.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+    <span class="clef-opt" data-clefmode="clef-bass-bravura" style="padding:4px 8px;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:3px;"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="15" viewBox="0 -0.012 0.689 0.897" style="display:block;"><path fill="currentColor" d="M 0.2570,-0.0120 C 0.0830,-0.0120 0.0050,0.1150 0.0050,0.2110 C 0.0050,0.2910 0.0470,0.3600 0.1280,0.3600 C 0.1910,0.3600 0.2340,0.3160 0.2340,0.2540 C 0.2340,0.1900 0.1870,0.1500 0.1380,0.1500 C 0.1110,0.1500 0.1010,0.1570 0.0880,0.1570 C 0.0750,0.1570 0.0720,0.1490 0.0720,0.1390 C 0.0720,0.0990 0.1320,0.0260 0.2340,0.0260 C 0.3400,0.0260 0.3860,0.1300 0.3860,0.2870 C 0.3860,0.3900 0.3640,0.5100 0.3020,0.6060 C 0.2420,0.6990 0.1390,0.7840 0.0150,0.8550 C 0.0060,0.8600 0.0000,0.8650 0.0000,0.8730 C 0.0000,0.8790 0.0040,0.8850 0.0130,0.8850 C 0.0180,0.8850 0.0240,0.8830 0.0300,0.8800 C 0.1630,0.8150 0.2910,0.7390 0.3970,0.6250 C 0.4840,0.5310 0.5360,0.4090 0.5360,0.2780 C 0.5360,0.1040 0.4300,-0.0120 0.2570,-0.0120 Z M 0.6350,0.3210 C 0.6040,0.3210 0.5810,0.3440 0.5810,0.3750 C 0.5810,0.4060 0.6040,0.4290 0.6350,0.4290 C 0.6660,0.4290 0.6890,0.4060 0.6890,0.3750 C 0.6890,0.3440 0.6660,0.3210 0.6350,0.3210 Z M 0.6340,0.0700 C 0.6030,0.0700 0.5790,0.0940 0.5790,0.1250 C 0.5790,0.1560 0.6030,0.1800 0.6340,0.1800 C 0.6650,0.1800 0.6890,0.1560 0.6890,0.1250 C 0.6890,0.0940 0.6650,0.0700 0.6340,0.0700 Z"/></svg></span>
+    <span class="clef-opt" data-clefmode="clef-bass" style="padding:4px 8px;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:3px;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="13" viewBox="1 3 11.44 10.5" style="display:block;"><path fill="currentColor" d="M5.11,13.41 C7.06,13.13 8.33,11.98 9.23,10.33 C9.82,9.24 9.95,8.06 9.97,6.73 C9.97,6.51 9.94,6.17 9.89,5.85 C9.66,3.96 8.40,3.00 6.74,3.00 C6.62,3.00 6.49,3.00 6.37,3.02 C4.82,3.15 3.45,3.71 2.34,4.81 C1.86,5.30 1.38,5.79 1.18,6.48 C1.12,6.70 1.09,6.91 1.09,7.10 C1.09,7.76 1.44,8.29 2.15,8.62 C2.19,8.63 2.22,8.66 2.27,8.68 C2.49,8.80 2.70,8.85 2.90,8.85 C3.20,8.85 3.48,8.74 3.74,8.52 C4.33,8.04 4.60,7.45 4.60,6.79 C4.60,6.55 4.57,6.32 4.51,6.08 C4.50,5.99 4.48,5.90 4.48,5.82 C4.48,5.42 4.72,5.14 5.19,5.11 C5.31,5.09 5.41,5.09 5.51,5.09 C6.22,5.09 6.87,5.30 7.39,5.82 C8.05,6.46 8.42,7.31 8.62,8.23 C8.65,8.34 8.65,8.46 8.65,8.55 C8.65,8.88 8.54,9.18 8.34,9.49 C8.05,9.97 7.69,10.39 7.22,10.74 C6.31,11.43 5.25,11.73 4.14,11.73 C3.82,11.73 3.51,11.73 3.18,11.73 C2.58,11.73 1.99,11.70 1.40,11.52 C1.18,11.45 1.00,11.63 1.00,11.83 C1.00,11.88 1.00,11.92 1.02,11.97 C1.06,12.13 1.10,12.29 1.18,12.44 C1.35,12.82 1.52,13.19 2.03,13.29 C2.68,13.43 3.30,13.50 3.95,13.50 C4.33,13.50 4.72,13.47 5.11,13.41 Z M10.95,9.06 C11.48,9.05 11.96,8.34 11.96,7.70 C11.96,7.26 11.71,7.34 11.50,7.26 C11.28,7.17 11.22,7.35 11.13,7.48 C10.87,7.87 10.87,8.32 10.72,8.74 C10.66,8.90 10.72,9.06 10.92,9.06 Z M11.43,5.24 C11.66,5.26 11.94,5.20 12.06,4.98 C12.25,4.65 12.44,4.34 12.44,3.94 C12.44,3.84 12.43,3.72 12.40,3.60 C12.28,3.15 11.94,3.35 11.71,3.24 C11.53,3.15 11.48,3.38 11.41,3.50 C11.13,3.93 11.20,4.44 11.07,4.92 C11.03,5.08 11.10,5.26 11.32,5.26 C11.35,5.26 11.40,5.24 11.43,5.24 Z"/></svg></span>
+    <span class="clef-opt" data-clefmode="clef-bass-hand" style="padding:4px 8px;cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:3px;"><svg xmlns="http://www.w3.org/2000/svg" shape-rendering="geometricPrecision" width="14" height="18" viewBox="0.441 1.199 15.459 19.401" style="display:block;"><path d="M 1.4 7.0 C -0.5 5.7 5.6 0.3 9.0 2.2 C 15.6 6.0 8.8 14.6 7.4 20.0" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/><line x1="14.2" y1="3.5" x2="15.1" y2="4.8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><line x1="14.9" y1="8.9" x2="14.0" y2="7.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>
   </div>
   <div class="sep"></div>
   <div class="grp" id="keySigGrp">
@@ -568,11 +591,17 @@ body:not(.light) [data-textcolor="#1C1508"].text-color:not(.on){border-color:rgb
   <div class="sep"></div>
   <div class="grp">
     <button class="btn" id="utilBtn" style="padding:2px 4px;position:relative;" title="more"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1C1508" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg></button>
-    <input type="file" id="loadFileInput" accept=".cnb,.json" style="display:none;"/>
+    <input type="file" id="loadFileInput" accept=".mnb,.cnb,.json" style="display:none;"/>
   </div>
 </div>
 
 <div class="scroll-area">
+<div id="iphoneSplash" style="display:none;">
+  <h1>Welcome to musicnotebook.app</h1>
+  <p>This is the mobile version offering a pocket notebook with limited features.</p>
+  <p>Try it on a tablet or desktop for the full experience.</p>
+  <div class="tap-hint">Tap to continue.</div>
+</div>
 <div class="paper"><div class="frame">
   <!-- Notation canvas (staffs, notes, stems) -->
   <canvas id="c" role="img" aria-label="Music manuscript notation area" data-scribble="off"></canvas>
@@ -2124,6 +2153,27 @@ function drawHandBassClef(ox, oy, scale, col, alpha) {
   cx.restore();
 }
 
+// ── Bravura clef rendering ────────────────────────────────────────────
+// Bravura font treble + bass clefs, normalised to the same staff coords as
+// the Petaluma paths above (y=0 top staff line, y=1 bottom staff line).
+// Anchor positions taken from the Bravura SMuFL glyphBBox metadata:
+// treble G-line at 62.53% of bbox height from the top, bass F-line at 24.61%.
+const TREBLE_BRAVURA_PATH_NORM = "M 0.4700,-0.1930 C 0.5030,-0.1930 0.5300,-0.1660 0.5300,-0.1110 C 0.5300,-0.0420 0.4970,0.0220 0.4190,0.1000 C 0.4030,0.1160 0.3790,0.1390 0.3560,0.1590 C 0.3490,0.1650 0.3450,0.1640 0.3430,0.1510 C 0.3390,0.1250 0.3370,0.0910 0.3370,0.0590 C 0.3370,-0.0970 0.4090,-0.1930 0.4700,-0.1930 Z M 0.4300,0.6470 C 0.4280,0.6350 0.4290,0.6320 0.4410,0.6330 C 0.5220,0.6400 0.5890,0.7080 0.5890,0.7960 C 0.5890,0.8590 0.5510,0.9100 0.4950,0.9380 C 0.4830,0.9440 0.4810,0.9440 0.4790,0.9320 Z M 0.3610,0.4880 C 0.3640,0.5070 0.3640,0.5060 0.3460,0.5120 C 0.2580,0.5420 0.2010,0.6210 0.2010,0.7060 C 0.2010,0.7960 0.2480,0.8600 0.3160,0.8830 C 0.3240,0.8860 0.3360,0.8890 0.3430,0.8890 C 0.3510,0.8890 0.3550,0.8840 0.3550,0.8780 C 0.3550,0.8710 0.3470,0.8680 0.3400,0.8650 C 0.2980,0.8470 0.2680,0.8040 0.2680,0.7580 C 0.2680,0.7010 0.3070,0.6580 0.3680,0.6410 C 0.3840,0.6370 0.3860,0.6380 0.3880,0.6490 L 0.4380,0.9470 C 0.4400,0.9580 0.4390,0.9580 0.4240,0.9610 C 0.4080,0.9640 0.3880,0.9660 0.3680,0.9660 C 0.1930,0.9660 0.0800,0.8690 0.0800,0.7300 C 0.0800,0.6710 0.0900,0.5920 0.1730,0.4980 C 0.2330,0.4310 0.2790,0.3940 0.3260,0.3560 C 0.3360,0.3480 0.3380,0.3490 0.3400,0.3600 Z M 0.3760,0.3350 C 0.3740,0.3230 0.3760,0.3220 0.3820,0.3160 C 0.3980,0.3010 0.4190,0.2800 0.4380,0.2590 C 0.5220,0.1670 0.5720,0.0480 0.5720,-0.0650 C 0.5720,-0.1520 0.5480,-0.2380 0.5070,-0.2980 C 0.4920,-0.3200 0.4660,-0.3480 0.4550,-0.3480 C 0.4410,-0.3480 0.4100,-0.3220 0.3900,-0.3000 C 0.3160,-0.2180 0.2920,-0.0930 0.2920,0.0110 C 0.2920,0.0690 0.2990,0.1340 0.3060,0.1750 C 0.3080,0.1870 0.3090,0.1890 0.2970,0.1990 C 0.2330,0.2520 0.1640,0.3130 0.1120,0.3770 C 0.0430,0.4630 0.0000,0.5560 0.0000,0.6630 C 0.0000,0.8370 0.1190,1.0020 0.3640,1.0020 C 0.3870,1.0020 0.4130,1.0000 0.4330,0.9960 C 0.4440,0.9940 0.4460,0.9930 0.4480,1.0050 C 0.4600,1.0720 0.4750,1.1590 0.4750,1.2060 C 0.4750,1.3540 0.3750,1.3720 0.3160,1.3720 C 0.2620,1.3720 0.2360,1.3560 0.2360,1.3430 C 0.2360,1.3360 0.2450,1.3330 0.2680,1.3260 C 0.2990,1.3170 0.3350,1.2900 0.3350,1.2320 C 0.3350,1.1770 0.3000,1.1300 0.2390,1.1300 C 0.1720,1.1300 0.1320,1.1830 0.1320,1.2450 C 0.1320,1.3100 0.1710,1.4080 0.3220,1.4080 C 0.3890,1.4080 0.5190,1.3780 0.5190,1.2080 C 0.5190,1.1510 0.5010,1.0560 0.4900,0.9940 C 0.4880,0.9820 0.4890,0.9830 0.5030,0.9770 C 0.6040,0.9370 0.6710,0.8520 0.6710,0.7390 C 0.6710,0.6110 0.5770,0.4980 0.4300,0.4980 C 0.4040,0.4980 0.4040,0.4980 0.4010,0.4800 Z";
+let _trebleBravuraCmds = null;
+function getTrebleBravuraCmds() { return _trebleBravuraCmds || (_trebleBravuraCmds = parseSVGPath(TREBLE_BRAVURA_PATH_NORM)); }
+
+function drawTrebleBravuraClef(ox, oy, scale, col, alpha) {
+  drawGlyph(ox, oy, scale, getTrebleBravuraCmds(), col, alpha);
+}
+
+const BASS_BRAVURA_PATH_NORM = "M 0.2570,-0.0120 C 0.0830,-0.0120 0.0050,0.1150 0.0050,0.2110 C 0.0050,0.2910 0.0470,0.3600 0.1280,0.3600 C 0.1910,0.3600 0.2340,0.3160 0.2340,0.2540 C 0.2340,0.1900 0.1870,0.1500 0.1380,0.1500 C 0.1110,0.1500 0.1010,0.1570 0.0880,0.1570 C 0.0750,0.1570 0.0720,0.1490 0.0720,0.1390 C 0.0720,0.0990 0.1320,0.0260 0.2340,0.0260 C 0.3400,0.0260 0.3860,0.1300 0.3860,0.2870 C 0.3860,0.3900 0.3640,0.5100 0.3020,0.6060 C 0.2420,0.6990 0.1390,0.7840 0.0150,0.8550 C 0.0060,0.8600 0.0000,0.8650 0.0000,0.8730 C 0.0000,0.8790 0.0040,0.8850 0.0130,0.8850 C 0.0180,0.8850 0.0240,0.8830 0.0300,0.8800 C 0.1630,0.8150 0.2910,0.7390 0.3970,0.6250 C 0.4840,0.5310 0.5360,0.4090 0.5360,0.2780 C 0.5360,0.1040 0.4300,-0.0120 0.2570,-0.0120 Z M 0.6350,0.3210 C 0.6040,0.3210 0.5810,0.3440 0.5810,0.3750 C 0.5810,0.4060 0.6040,0.4290 0.6350,0.4290 C 0.6660,0.4290 0.6890,0.4060 0.6890,0.3750 C 0.6890,0.3440 0.6660,0.3210 0.6350,0.3210 Z M 0.6340,0.0700 C 0.6030,0.0700 0.5790,0.0940 0.5790,0.1250 C 0.5790,0.1560 0.6030,0.1800 0.6340,0.1800 C 0.6650,0.1800 0.6890,0.1560 0.6890,0.1250 C 0.6890,0.0940 0.6650,0.0700 0.6340,0.0700 Z";
+let _bassBravuraCmds = null;
+function getBassBravuraCmds() { return _bassBravuraCmds || (_bassBravuraCmds = parseSVGPath(BASS_BRAVURA_PATH_NORM)); }
+
+function drawBassBravuraClef(ox, oy, scale, col, alpha) {
+  drawGlyph(ox, oy, scale, getBassBravuraCmds(), col, alpha);
+}
+
 function drawClef(clef, isGhost, colOverride) {
   const si=clef.si, x=clef.x, type=clef.type;
   const style = clef.style || 'petaluma';
@@ -2132,11 +2182,13 @@ function drawClef(clef, isGhost, colOverride) {
   const scale = SH;
   const t = stTop(si);
   if (type === 'treble') {
-    if (style === 'handdrawn') drawHandTrebleClef(x, t, scale, col, alpha);
-    else drawTrebleClef(x, t, scale, col, alpha);
+    if      (style === 'handdrawn') drawHandTrebleClef(x, t, scale, col, alpha);
+    else if (style === 'bravura')   drawTrebleBravuraClef(x, t, scale, col, alpha);
+    else                            drawTrebleClef(x, t, scale, col, alpha);
   } else {
-    if (style === 'handdrawn') drawHandBassClef(x, t, scale, col, alpha);
-    else drawBassClef(x, t, scale, col, alpha);
+    if      (style === 'handdrawn') drawHandBassClef(x, t, scale, col, alpha);
+    else if (style === 'bravura')   drawBassBravuraClef(x, t, scale, col, alpha);
+    else                            drawBassClef(x, t, scale, col, alpha);
   }
 }
 // ── Beam helpers ────────────────────────────────────────────────────────
@@ -2215,14 +2267,10 @@ function beamMembers(s1, s2){
   const xMax = Math.max(s1.x, s2.x) + 1;
   const up = stemIsUp(s1);
   const si = stemStaff(s1);
-  // Build the set of stem IDs that are endpoints of OTHER primary beams on this staff,
+  // Build the set of stem IDs that are endpoints of OTHER beams on this staff,
   // so we don't let two beams claim each other's interior stems when they overlap in X.
-  // Only layer-0 beams compete; child beams (16th/32nd) sit *inside* a primary group
-  // and their endpoints must remain valid members of that primary group.
   const foreignEndpoints = new Set();
   for(const b of beams){
-    if((b.layer||0)!==0) continue;
-    if(b.partial) continue;
     const bs1 = stems.find(s=>s.id===b.stemId1);
     const bs2 = stems.find(s=>s.id===b.stemId2);
     if(!bs1||!bs2) continue;
@@ -2259,65 +2307,21 @@ function repointBeamsAwayFrom(stemId){
 }
 
 
-// Draw a beam quad given an array of {x, tipY} points and stem direction.
-// When parentGeom is provided (child beams), the quad is built from the parent's
-// bowed curve translated by a perpendicular-ish offset, guaranteeing strict
-// parallelism with the parent. Otherwise (primary beam), the quad uses pts directly.
-function drawBeamQuad(pts, up, col, alpha, parentGeom, layerOffset){
+// Draw a beam quad given an array of {x, tipY} points and stem direction
+function drawBeamQuad(pts, up, col, alpha){
   if(pts.length < 2) return;
   const sign = up ? -1 : 1;
   const hw = STEM_LW / 2;
-  cx.save();
-  cx.globalAlpha = alpha ?? 1;
-  cx.fillStyle = col;
-  cx.beginPath();
-
-  if(parentGeom){
-    // Sample parent's bowed inner-edge curve at this child's endpoint x positions,
-    // then translate by layerOffset (toward the noteheads). The child's two long
-    // edges are translates of the same parent curve, so they stay strictly parallel
-    // to the parent and to each other.
-    const cx0 = pts[0].x - hw, cxN = pts[pts.length-1].x + hw;
-    // Solve t for a given x on the parent curve. Parent's x is linear in t since
-    // its control point sits at (x0+xN)/2: x(t) = px0 + t*(pxN - px0).
-    const tAt = x => (parentGeom.pxN === parentGeom.px0) ? 0 : (x - parentGeom.px0) / (parentGeom.pxN - parentGeom.px0);
-    // Parent inner-edge y at parameter t (quadratic Bezier with control y = pmyi + pbow).
-    const yAtT = t => {
-      const u = 1 - t;
-      return u*u*parentGeom.py0i + 2*u*t*(parentGeom.pmyi + parentGeom.pbow) + t*t*parentGeom.pyNi;
-    };
-    const t0 = tAt(cx0), tN = tAt(cxN);
-    const y0i = yAtT(t0) + layerOffset;
-    const yNi = yAtT(tN) + layerOffset;
-    const y0o = y0i + sign*BEAM_H;
-    const yNo = yNi + sign*BEAM_H;
-    // Reuse the parent's bow magnitude and its midpoint location, but project
-    // onto this child's x-span. The two edges share the same bow so they're parallel.
-    const cmx = (cx0 + cxN) / 2;
-    // Parent's curve y at x=cmx, then offset → midpoint of the child's inner edge
-    const myi = yAtT(tAt(cmx)) + layerOffset;
-    const myo = myi + sign*BEAM_H;
-    // The Bezier control y that recreates the same shape over the child's span:
-    // For a quadratic with endpoints at t=0 and t=1, the curve at t=0.5 is
-    // (P0 + 2*Pc + P2)/4, so Pc = 2*midCurve - (P0+P2)/2.
-    const ctrlYi = 2*myi - (y0i + yNi)/2;
-    const ctrlYo = 2*myo - (y0o + yNo)/2;
-    cx.moveTo(cx0, y0i);
-    cx.quadraticCurveTo(cmx, ctrlYi, cxN, yNi);
-    cx.lineTo(cxN, yNo);
-    cx.quadraticCurveTo(cmx, ctrlYo, cx0, y0o);
-    cx.closePath();
-    cx.fill();
-    cx.restore();
-    return;
-  }
-
   const bow = sign * LS * 0.12; // bow away from noteheads
   const x0 = pts[0].x - hw, xN = pts[pts.length-1].x + hw;
   const mx = (x0 + xN) / 2;
   const y0i = pts[0].tipY, yNi = pts[pts.length-1].tipY;
   const y0o = y0i + sign*BEAM_H, yNo = yNi + sign*BEAM_H;
   const myi = (y0i + yNi) / 2, myo = (y0o + yNo) / 2;
+  cx.save();
+  cx.globalAlpha = alpha ?? 1;
+  cx.fillStyle = col;
+  cx.beginPath();
   // Inner edge (toward noteheads) — bowed
   cx.moveTo(x0, y0i);
   cx.quadraticCurveTo(mx, myi + bow, xN, yNi);
@@ -2330,7 +2334,7 @@ function drawBeamQuad(pts, up, col, alpha, parentGeom, layerOffset){
   cx.restore();
 }
 
-function drawBeam(beam, col, alpha, tipOverride, beamSlant, beamGeom){
+function drawBeam(beam, col, alpha, tipOverride, beamSlant){
   const s1 = stems.find(s=>s.id===beam.stemId1);
   const s2 = stems.find(s=>s.id===beam.stemId2);
   if(!s1||!s2) return;
@@ -2342,24 +2346,16 @@ function drawBeam(beam, col, alpha, tipOverride, beamSlant, beamGeom){
   if(beam.partial){
     const parentBeam = beams.find(b=>(b.layer||0)===0&&beamSharesPrimary(beam,b));
     const sl = parentBeam && beamSlant && beamSlant.get(parentBeam.id);
-    const pg = parentBeam && beamGeom && beamGeom.get(parentBeam.id);
     const BEAM_STEP = BEAM_H+BEAM_GAP;
     const stubLen = LS*1.2;
     const dir = beam.partial==='right' ? 1 : -1;
-    const x0 = s1.x, x1 = s1.x + dir*stubLen;
-    if(pg){
-      // Sample parent's bowed curve so the stub is strictly parallel.
-      const pts = [{x:Math.min(x0,x1), tipY:0}, {x:Math.max(x0,x1), tipY:0}];
-      drawBeamQuad(pts, up, col, alpha, pg, -sign*BEAM_STEP*layer);
-      return;
-    }
-    // Fallback (no parent): straight line through this stem's tip
     const yAtX = x => {
       if(!sl) return (tipOverride&&tipOverride.has(s1.id)) ? tipOverride.get(s1.id) : stemTipY(s1);
       const spanX = sl.endRx - sl.endLx;
       const t = spanX>0.1 ? (x - sl.endLx)/spanX : 0;
       return sl.leftY + t*(sl.rightY - sl.leftY) - sign*BEAM_STEP*layer;
     };
+    const x0 = s1.x, x1 = s1.x + dir*stubLen;
     const pts = [{x:Math.min(x0,x1), tipY:yAtX(Math.min(x0,x1))}, {x:Math.max(x0,x1), tipY:yAtX(Math.max(x0,x1))}];
     drawBeamQuad(pts, up, col, alpha);
     return;
@@ -2373,19 +2369,12 @@ function drawBeam(beam, col, alpha, tipOverride, beamSlant, beamGeom){
     const pts = members.map(s=>({x:s.x, tipY:(tipOverride&&tipOverride.has(s.id)) ? tipOverride.get(s.id) : stemTipY(s)}));
     drawBeamQuad(pts, up, col, alpha);
   } else {
-    // Child (16th/32nd) beam: sample the parent primary beam's bowed curve at this
+    // Partial (16th/32nd) beam: sample the parent primary beam's slant line at this
     // beam's own endpoint x positions, then offset by BEAM_STEP * layer. This guarantees
-    // strict parallelism with the parent regardless of slant or bow.
+    // strict parallelism regardless of individual stem lengths.
     const parentBeam = beams.find(b=>(b.layer||0)===0&&beamSharesPrimary(beam,b));
     const sl = parentBeam && beamSlant && beamSlant.get(parentBeam.id);
-    const pg = parentBeam && beamGeom && beamGeom.get(parentBeam.id);
     const BEAM_STEP = BEAM_H+BEAM_GAP;
-    if(pg){
-      const pts = [s1,s2].sort((a,b)=>a.x-b.x).map(s=>({x:s.x, tipY:0}));
-      drawBeamQuad(pts, up, col, alpha, pg, -sign*BEAM_STEP*layer);
-      return;
-    }
-    // Fallback (no parent geometry available): straight-chord sample
     const yAtX = x => {
       if(!sl) return (tipOverride&&tipOverride.has(s1.id)) ? tipOverride.get(s1.id) : stemTipY(s1);
       const spanX = sl.endRx - sl.endLx;
@@ -2410,65 +2399,8 @@ function beamSharesPrimary(b, p){
   return hasStem(bs1)&&hasStem(bs2);
 }
 
-function drawBeamPreview(startStem, endX, endY, col, alpha, beamSlant, beamGeom){
+function drawBeamPreview(startStem, endX, endY, col, alpha){
   const up = stemIsUp(startStem);
-  const sign = up?-1:1;
-
-  // If start stem is part of a primary beam, check whether the target x falls
-  // on another member of the same primary group. If so, render a strict
-  // child-beam preview that hugs the existing beam — same bow, same parallelism,
-  // correct BEAM_STEP offset above the primary.
-  if(beamGeom){
-    let parentBeam=null, parentMembers=null;
-    for(const b of beams){
-      if((b.layer||0)!==0) continue;
-      if(b.partial) continue;
-      const bs1=stems.find(s=>s.id===b.stemId1);
-      const bs2=stems.find(s=>s.id===b.stemId2);
-      if(!bs1||!bs2) continue;
-      const members=beamMembers(bs1,bs2);
-      if(members.some(m=>m.id===startStem.id)){
-        parentBeam=b; parentMembers=members; break;
-      }
-    }
-    if(parentBeam){
-      const pg=beamGeom.get(parentBeam.id);
-      // Find the target stem at the cursor: prefer a member of the same primary.
-      const targetStem=findStemTip(endX, endY);
-      if(pg && targetStem && targetStem.id!==startStem.id
-         && parentMembers.some(m=>m.id===targetStem.id)){
-        // Determine the layer this new sub-beam would occupy: 1 + max layer of
-        // any existing beam covering the span between these two stems.
-        const xLo=Math.min(startStem.x,targetStem.x);
-        const xHi=Math.max(startStem.x,targetStem.x);
-        let maxLayer=0;
-        for(const b of beams){
-          const bs1=stems.find(s=>s.id===b.stemId1);
-          const bs2=stems.find(s=>s.id===b.stemId2);
-          if(!bs1||!bs2) continue;
-          const bxLo=Math.min(bs1.x,bs2.x), bxHi=Math.max(bs1.x,bs2.x);
-          // covers the span if it spans both endpoints (or contains them as members)
-          if(bxLo<=xLo+0.5 && bxHi>=xHi-0.5){
-            const members=(b.layer||0)===0?beamMembers(bs1,bs2):[bs1,bs2];
-            if(members.some(m=>m.id===startStem.id)&&members.some(m=>m.id===targetStem.id)){
-              maxLayer=Math.max(maxLayer,(b.layer||0)+1);
-            }
-          }
-        }
-        const layer=Math.max(1,maxLayer);
-        const BEAM_STEP=BEAM_H+BEAM_GAP;
-        const ordered=[startStem,targetStem].sort((a,b)=>a.x-b.x);
-        const pts=ordered.map(s=>({x:s.x, tipY:0}));
-        drawBeamQuad(pts, up, col, alpha, pg, -sign*BEAM_STEP*layer);
-        return;
-      }
-    }
-  }
-
-  // Fallback: free-form preview from start stem tip to cursor (or hovered stem),
-  // straightening up intermediate member stems. Anchor to the visible tip
-  // (i.e. the primary beam line for beamed stems) so the preview lines up
-  // with what the user will actually see.
   const xMin = Math.min(startStem.x, endX) - 1;
   const xMax = Math.max(startStem.x, endX) + 1;
   const si = stemStaff(startStem);
@@ -2476,7 +2408,7 @@ function drawBeamPreview(startStem, endX, endY, col, alpha, beamSlant, beamGeom)
     .filter(s => stemIsUp(s) === up && s.x >= xMin && s.x <= xMax && stemStaff(s) === si)
     .sort((a, b) => a.x - b.x);
   // Straight line from startStem tip to ghost end, capped slant
-  let startY = visualStemTipY(startStem);
+  let startY = stemTipY(startStem);
   let slant = endY - startY;
   if(Math.abs(slant) > LS*4) slant = Math.sign(slant) * LS*4;
   const spanX = endX - startStem.x;
@@ -2487,7 +2419,7 @@ function drawBeamPreview(startStem, endX, endY, col, alpha, beamSlant, beamGeom)
     const lineY = startY + t * slant;
     // Lengthen only for intermediate stems
     const stem = members.find(s => Math.abs(s.x - x) < 1);
-    const tipY = stem ? (up ? Math.min(lineY, visualStemTipY(stem)) : Math.max(lineY, visualStemTipY(stem))) : lineY;
+    const tipY = stem ? (up ? Math.min(lineY, stemTipY(stem)) : Math.max(lineY, stemTipY(stem))) : lineY;
     return { x, tipY };
   });
   drawBeamQuad(allPts, up, col, alpha);
@@ -3077,7 +3009,6 @@ function render(){
   // Also store each primary beam's slant for child (16th) beams to sample from.
   const beamedTipY = new Map();
   const beamSlant  = new Map(); // beam.id → {endLx, leftY, endRx, rightY}
-  const beamGeom   = new Map(); // beam.id → {px0, pxN, py0i, pyNi, pmyi, pbow} for child/partial sampling
   beams.filter(b=>(b.layer||0)===0).forEach(b=>{
     const s1=stems.find(s=>s.id===b.stemId1);
     const s2=stems.find(s=>s.id===b.stemId2);
@@ -3095,16 +3026,6 @@ function render(){
       else  {if(leftY>rightY)rightY=leftY+capped;else leftY=rightY-capped;}
     }
     beamSlant.set(b.id,{endLx:endL.x,leftY,endRx:endR.x,rightY});
-    // Cache the parent's bow geometry so child beams can sample from the same
-    // curve and stay strictly parallel. Mirrors the math in drawBeamQuad.
-    const sign=up?-1:1, hw=STEM_LW/2;
-    const px0=endL.x-hw, pxN=endR.x+hw;
-    beamGeom.set(b.id,{
-      px0, pxN,
-      py0i:leftY, pyNi:rightY,
-      pmyi:(leftY+rightY)/2,
-      pbow:sign*LS*0.12,
-    });
     const spanX=endR.x-endL.x;
     members.forEach(s=>{
       const t=spanX>0.1?(s.x-endL.x)/spanX:0;
@@ -3141,7 +3062,7 @@ function render(){
       const primary=beams.find(p=>p.id===sel.id);
       if(primary&&(b.layer||0)!==0) selBeam=beamSharesPrimary(b,primary);
     }
-    drawBeam(b,(selS1||selS2||selBeam)?SEL_COL:INK,1,beamedTipY,beamSlant,beamGeom);
+    drawBeam(b,(selS1||selS2||selBeam)?SEL_COL:INK,1,beamedTipY,beamSlant);
   });
   flags.forEach(f=>{
     const selStem=selSet.some(s=>s.type==='stem'&&s.id===f.stemId);
@@ -3165,7 +3086,7 @@ function render(){
       if(!farInGroup&&farStem.id!==anchorStemId
         &&stemIsUp(farStem)===stemIsUp(anchorStem)
         &&stemStaff(farStem)===stemStaff(anchorStem)){
-        drawBeamPreview(anchorStem,farStem.x,stemTipY(farStem),'#5580CC',0.55,beamSlant,beamGeom);
+        drawBeamPreview(anchorStem,farStem.x,stemTipY(farStem),'#5580CC',0.55);
         return true;
       }
       return false;
@@ -3184,7 +3105,7 @@ function render(){
       }
     }
     if(!showedExtend){
-      drawBeamPreview(beamStartStem,beamGhostEnd.x,beamGhostEnd.y,'#5580CC',0.55,beamSlant,beamGeom);
+      drawBeamPreview(beamStartStem,beamGhostEnd.x,beamGhostEnd.y,'#5580CC',0.55);
     }
   }
   if(mode==='stem-beam'&&!beamDragging&&!stemDragging&&beamGhostEnd)
@@ -3198,13 +3119,13 @@ function render(){
     if(anchorStem){
       const targetStem=findStemTip(beamGhostEnd.x,beamGhostEnd.y);
       if(targetStem&&targetStem.id!==anchorStemId&&stemIsUp(targetStem)===stemIsUp(anchorStem)&&stemStaff(targetStem)===stemStaff(anchorStem)){
-        drawBeamPreview(anchorStem,targetStem.x,stemTipY(targetStem),SEL_COL,0.45,beamSlant,beamGeom);
+        drawBeamPreview(anchorStem,targetStem.x,stemTipY(targetStem),SEL_COL,0.45);
         // Draw a highlight dot on the target stem tip
         cx.save();cx.fillStyle=SEL_COL;cx.globalAlpha=0.6;
         cx.beginPath();cx.arc(targetStem.x,stemTipY(targetStem),LS*0.7,0,Math.PI*2);cx.fill();cx.restore();
       } else {
         // No valid target — draw preview from anchor to cursor
-        drawBeamPreview(anchorStem,beamGhostEnd.x,beamGhostEnd.y,SEL_COL,0.3,beamSlant,beamGeom);
+        drawBeamPreview(anchorStem,beamGhostEnd.x,beamGhostEnd.y,SEL_COL,0.3);
       }
     }
   }
@@ -4050,12 +3971,12 @@ function notationDown(x,y){
     }
     return;
   }
-  if(mode==='clef-treble'||mode==='clef-bass'||mode==='clef-treble-hand'||mode==='clef-bass-hand'){
+  if(mode==='clef-treble'||mode==='clef-bass'||mode==='clef-treble-hand'||mode==='clef-bass-hand'||mode==='clef-treble-bravura'||mode==='clef-bass-bravura'){
     const si=findStaff(y);
     if(si<0)return;
-    const type=(mode==='clef-treble'||mode==='clef-treble-hand')?'treble':'bass';
-    const style=(mode==='clef-treble-hand'||mode==='clef-bass-hand')?'handdrawn':'petaluma';
-    const cx2 = Math.abs(x-LM)<LS*6 ? LM+LS*1.0 : x;
+    const type=(mode==='clef-treble'||mode==='clef-treble-hand'||mode==='clef-treble-bravura')?'treble':'bass';
+    const style=(mode==='clef-treble-hand'||mode==='clef-bass-hand')?'handdrawn':(mode==='clef-treble-bravura'||mode==='clef-bass-bravura')?'bravura':'petaluma';
+    const cx2 = Math.abs(x-LM)<LS*6 ? LM+LS*0.6 : x;
     historyPush();
     clefs.push({id:clid++,type,si,x:cx2,style});
     clefGhost=null;
@@ -4202,7 +4123,7 @@ function notationMove(x,y){
     });
     lassoGroupOrig.clefs.forEach(({id,x:ox,si:osi})=>{
       const c=clefs.find(c=>c.id===id);if(!c)return;
-      const nx=snapX(ox+dx);c.x=Math.abs(nx-LM)<LS*6?LM+LS*1.0:Math.max(LM,Math.min(RM,nx));
+      const nx=snapX(ox+dx);c.x=Math.abs(nx-LM)<LS*6?LM+LS*0.6:Math.max(LM,Math.min(RM,nx));
     });
     if(lassoGroupOrig.hairpins&&lassoGroupOrig.hairpins.length){
       lassoGroupOrig.hairpins.forEach(({id,x1:ox1,y:oy,x2:ox2})=>{
@@ -4410,7 +4331,7 @@ function notationMove(x,y){
       const c=clefs.find(c=>c.id===sel.id);
       if(c){
         const newX=snapX(selDragOrig.x+dx);
-        c.x=Math.abs(newX-LM)<LS*6?LM+LS*1.0:Math.max(LM,Math.min(RM,newX));
+        c.x=Math.abs(newX-LM)<LS*6?LM+LS*0.6:Math.max(LM,Math.min(RM,newX));
         const newSi=findStaff(stTop(selDragOrig.si)+SH/2+dy);
         if(newSi>=0)c.si=newSi;
       }
@@ -4483,13 +4404,13 @@ function notationMove(x,y){
     beamGhostEnd={x,y};
     render();return;
   }
-  if(mode==='clef-treble'||mode==='clef-bass'||mode==='clef-treble-hand'||mode==='clef-bass-hand'){
+  if(mode==='clef-treble'||mode==='clef-bass'||mode==='clef-treble-hand'||mode==='clef-bass-hand'||mode==='clef-treble-bravura'||mode==='clef-bass-bravura'){
     if(_clefJustPlaced) return; // suppress ghost overlay after placement until lift
     const si=findStaff(y);
-    const type=(mode==='clef-treble'||mode==='clef-treble-hand')?'treble':'bass';
-    const style=(mode==='clef-treble-hand'||mode==='clef-bass-hand')?'handdrawn':'petaluma';
+    const type=(mode==='clef-treble'||mode==='clef-treble-hand'||mode==='clef-treble-bravura')?'treble':'bass';
+    const style=(mode==='clef-treble-hand'||mode==='clef-bass-hand')?'handdrawn':(mode==='clef-treble-bravura'||mode==='clef-bass-bravura')?'bravura':'petaluma';
     if(si<0){clefGhost=null;render();return;}
-    const cx2=Math.abs(x-LM)<LS*6?LM+LS*1.0:x;
+    const cx2=Math.abs(x-LM)<LS*6?LM+LS*0.6:x;
     clefGhost={type,si,x:cx2,style};
     render();
     return;
@@ -6657,7 +6578,7 @@ document.getElementById('saveBtn').addEventListener('click',()=>{
   const datePart = now.getFullYear()+'-'+pad(now.getMonth()+1)+'-'+pad(now.getDate());
   const timePart = pad(now.getHours())+pad(now.getMinutes());
   a.href     = url;
-  a.download = 'sketch_'+datePart+'_'+timePart+'.cnb';
+  a.download = 'sketch_'+datePart+'_'+timePart+'.mnb';
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -7731,12 +7652,14 @@ function onPanEnd(e){
 
     // Target button icon sizes and tight viewBoxes for button context
     const btnSizes = {
-      'clef-treble': [14, 29], 'clef-treble-hand': [11, 27],
-      'clef-bass': [18, 26], 'clef-bass-hand': [20, 29]
+      'clef-treble': [12, 29], 'clef-treble-hand': [11, 28], 'clef-treble-bravura': [11, 30],
+      'clef-bass': [14, 13], 'clef-bass-hand': [14, 18], 'clef-bass-bravura': [12, 15]
     };
     const btnViewBoxes = {
-      'clef-treble-hand': '3.7 0.2 11.2 27.6',
-      'clef-bass-hand': '-2 0 20 24'
+      'clef-treble-hand': '3.916 0.4 10.833 27.2',
+      'clef-bass-hand': '0.441 1.199 15.459 19.401',
+      'clef-treble-bravura': '0 -0.348 0.671 1.756',
+      'clef-bass-bravura': '0 -0.012 0.689 0.897'
     };
     // Stroke weights adjusted so both clefs render at equal pixel weight in button
     const btnStrokes = {};
@@ -8647,6 +8570,23 @@ cv.addEventListener('dblclick', e => {
     if(!hasContent) return;
     restoreSaveData(data);
   } catch(e){ /* corrupt or missing — start fresh */ }
+})();
+
+// ── iPhone first-load splash ─────────────────────────────────────────────
+// Show a one-time welcome on iPhone explaining this is the limited mobile
+// version. Uses _isIPhone (which also matches narrow Android browsers — the
+// limited UI applies to them equally).
+(function showIphoneSplash(){
+  if(!_isIPhone) return;
+  try { if(localStorage.getItem('iphoneSplashShown')) return; } catch(e){ /* private mode → show anyway */ }
+  const splash = document.getElementById('iphoneSplash');
+  if(!splash) return;
+  splash.style.display = 'flex';
+  const dismiss = () => {
+    splash.style.display = 'none';
+    try { localStorage.setItem('iphoneSplashShown', '1'); } catch(e){}
+  };
+  splash.addEventListener('click', dismiss);
 })();
 </script>
 </body></html>
