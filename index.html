@@ -155,7 +155,15 @@ body:not(.light) [data-pencolor="#1C1508"]:not(.on){border-color:rgba(255,255,25
 #keySigMenu.show{display:flex;}
 #keySigMenu .btn{width:100%;justify-content:flex-start;font-size:11px;padding:3px 8px;white-space:nowrap;}
 #textLabelEditor{
-  display:none;position:absolute;z-index:50;
+  /* Default-hidden via visibility (not display:none) so the element remains in
+     layout and is always focusable. Required for the iPad full keyboard: when
+     the user double-taps or finishes drawing a text box, primeIOSKeyboard()
+     focuses a hidden bait input synchronously, then openTextEditor focuses the
+     real textarea. If this textarea is display:none at gesture time, iOS treats
+     the subsequent display:block→focus as a non-gesture-continuous interaction
+     and shows the small/floating keyboard or no keyboard at all. */
+  visibility:hidden;pointer-events:none;opacity:0;
+  position:absolute;z-index:50;
   background:rgba(255,255,255,0.92);
   border:1.5px solid rgba(85,128,204,0.8);
   border-radius:3px;
@@ -171,6 +179,9 @@ body:not(.light) [data-pencolor="#1C1508"]:not(.on){border-color:rgba(255,255,25
   white-space:pre-wrap;
   -webkit-user-select:text;user-select:text;-webkit-touch-callout:default;
 }
+/* When .editing class is added by openTextEditor, the textarea becomes visible
+   and interactive. The class is removed by commit/cancel. */
+#textLabelEditor.editing{visibility:visible;pointer-events:auto;opacity:1;}
 body.light #textLabelEditor{background:rgba(220,220,220,0.97);color:#1C1508;}
 body:not(.light) #textLabelEditor{background:rgba(210,210,210,0.97);color:#1C1508;}
 #textToolbar{
@@ -709,6 +720,12 @@ body:not(.light) [data-textcolor="#1C1508"].text-color:not(.on){border-color:rgb
 // ═══════════════════════════════════════════════════════════════
 //  MUSIC MANUSCRIPT SKETCHPAD
 // ═══════════════════════════════════════════════════════════════
+
+// Version. Date-based: YYYY.MM.DD with optional a/b/c suffix for multiple
+// builds in the same day. Bump this whenever you ship a new index.html.
+const VERSION = '2026.04.27b';
+console.log('Music Notebook ' + VERSION);
+
 //
 //  ARCHITECTURE OVERVIEW
 //  ─────────────────────
@@ -8459,9 +8476,26 @@ function shouldFingerScroll(){
   return scrollEligible.includes(mode);
 }
 
+// ── DIAGNOSTIC: temporary on-screen log for iPad scroll debugging ─────
+// Remove this whole block once finger-scroll is confirmed working.
+let _scrollDebugDiv = null;
+function _scrollDebug(msg){
+  if(!_isTouch || _isIPhone) return;
+  if(!_scrollDebugDiv){
+    _scrollDebugDiv = document.createElement('div');
+    _scrollDebugDiv.style.cssText = 'position:fixed;top:60px;right:10px;width:280px;max-height:200px;overflow:hidden;background:rgba(0,0,0,0.75);color:#0f0;font:10px/1.3 monospace;padding:6px;z-index:99999;border-radius:4px;pointer-events:none;white-space:pre-wrap;';
+    document.body.appendChild(_scrollDebugDiv);
+  }
+  const lines = (_scrollDebugDiv.textContent || '').split('\n');
+  lines.unshift(msg);
+  _scrollDebugDiv.textContent = lines.slice(0, 16).join('\n');
+}
+
 function onFingerScrollStart(e){
-  if(e.touches.length !== 1) return;
-  if(!shouldFingerScroll()){ _fingerScrollState.primed = false; return; }
+  if(e.touches.length !== 1){ _scrollDebug('start: skip (touches='+e.touches.length+')'); return; }
+  const eligible = shouldFingerScroll();
+  _scrollDebug('start: eligible='+eligible+' mode='+mode+' tt='+_lastTouchType+' land='+window.matchMedia('(orientation:landscape)').matches);
+  if(!eligible){ _fingerScrollState.primed = false; return; }
   const t = e.touches[0];
   _fingerScrollState.primed = true;
   _fingerScrollState.active = false;
@@ -8473,35 +8507,34 @@ function onFingerScrollStart(e){
 function onFingerScrollMove(e){
   if(!_fingerScrollState.primed) return;
   if(e.touches.length !== 1){
-    // Switched to multi-finger (likely 2-finger pan) — let onPanMove take over.
+    _scrollDebug('move: multitouch, releasing');
     _fingerScrollState.primed = false;
     _fingerScrollState.active = false;
     return;
   }
   const t = e.touches[0];
   if(!_fingerScrollState.active){
-    // Wait for movement to cross the threshold before claiming the gesture.
     const dx = t.clientX - _fingerScrollState.startX;
     const dy = t.clientY - _fingerScrollState.startY;
     if(Math.hypot(dx, dy) < TAP_DRAG_THRESHOLD_CSS) return;
     _fingerScrollState.active = true;
-    // Cancel any drag-in-progress that the notationDown started — we're scrolling now.
+    _scrollDebug('move: ACTIVATED dx='+dx.toFixed(1)+' dy='+dy.toFixed(1)+' scrollH='+scrollArea.scrollHeight+' clientH='+scrollArea.clientHeight+' top='+scrollArea.scrollTop);
     selDragging = false; selDragOrig = null; selDragStart = null;
     lassoGroupDrag = false; lassoGroupStart = null; lassoGroupOrig = null;
     ghost = null; alignGuide = null;
     _penNoteDeferred = false;
   }
-  // Active scroll — translate finger movement to scrollTop delta.
   e.preventDefault();
+  const before = scrollArea.scrollTop;
   scrollArea.scrollTop -= (t.clientY - _fingerScrollState.lastY);
+  if(Math.random() < 0.1) _scrollDebug('move: dy='+(t.clientY - _fingerScrollState.lastY).toFixed(1)+' top '+before+'→'+scrollArea.scrollTop);
   _fingerScrollState.lastY = t.clientY;
 }
 
 function onFingerScrollEnd(e){
   if(e.touches.length === 0){
+    if(_fingerScrollState.primed || _fingerScrollState.active) _scrollDebug('end: primed='+_fingerScrollState.primed+' active='+_fingerScrollState.active);
     _fingerScrollState.primed = false;
-    // Note: leave .active set until notationUp runs — it checks the flag to
-    // know whether to suppress its own drag-commit work. notationUp resets it.
   }
 }
 
@@ -9338,7 +9371,7 @@ function openTextEditor(tl){
   textEditor.style.lineHeight = '1.35';
   textEditor.style.padding    = pad + 'px ' + pad + 'px';
   textEditor.value            = tl.text || '';
-  textEditor.style.display    = 'block';
+  textEditor.classList.add('editing');
 
   syncToolbarToLabel(tl);
   textToolbar.classList.add('show');
@@ -9363,10 +9396,10 @@ function fitEditorHeight(){
 }
 
 function commitTextEditor(){
-  if(textEditor.style.display === 'none') return;
+  if(!textEditor.classList.contains('editing')) return;
   const id  = editingLabelId;
   const txt = textEditor.value;
-  textEditor.style.display = 'none';
+  textEditor.classList.remove('editing');
   textToolbar.classList.remove('show');
   editingLabelId = null;
 
@@ -9400,9 +9433,9 @@ function commitTextEditor(){
 }
 
 function cancelTextEditor(){
-  if(textEditor.style.display === 'none') return;
+  if(!textEditor.classList.contains('editing')) return;
   const id = editingLabelId;
-  textEditor.style.display = 'none';
+  textEditor.classList.remove('editing');
   textToolbar.classList.remove('show');
   editingLabelId = null;
   const tl = textLabels.find(t => t.id === id);
