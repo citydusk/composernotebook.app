@@ -632,10 +632,15 @@ body:not(.light) [data-textcolor="#1C1508"].text-color:not(.on){border-color:rgb
          gesture-continuous, which triggers the full software keyboard on iPad
          instead of the reduced/floating variant. Must NOT be display:none
          (cannot be focused) and must NOT be readonly (skips keyboard on iOS).
-         Positioned off-screen so it's invisible but focusable. -->
-    <input type="text" id="iosKbdPrimer" aria-hidden="true" tabindex="-1"
+         Positioned off-screen so it's invisible but focusable.
+         Element type is <textarea> not <input>: iOS appears to treat focus
+         transfer between matching element types as more reliably
+         gesture-continuous. The text-label editor (the harder-to-prime case)
+         is a textarea; the bookmark popover input still works fine being
+         primed from a textarea. -->
+    <textarea id="iosKbdPrimer" aria-hidden="true" tabindex="-1"
            autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-           style="position:absolute;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0;font-size:16px;"/>
+           style="position:absolute;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none;border:0;padding:0;font-size:16px;resize:none;"></textarea>
   </div>
 </div>
 
@@ -723,7 +728,7 @@ body:not(.light) [data-textcolor="#1C1508"].text-color:not(.on){border-color:rgb
 
 // Version. Date-based: YYYY.MM.DD with optional a/b/c suffix for multiple
 // builds in the same day. Bump this whenever you ship a new index.html.
-const VERSION = '2026.04.27c';
+const VERSION = '2026.04.27d';
 console.log('Music Notebook ' + VERSION);
 
 //
